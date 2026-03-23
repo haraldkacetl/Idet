@@ -4,7 +4,9 @@
 #include <string>
 #include <algorithm>
 #include <fstream>
-
+#include <filesystem>
+#include <chrono>
+#include <ctime>
 std::ofstream debugOut;
 
 void debug(const std::string& msg) {
@@ -16,6 +18,8 @@ void debug(const std::string& msg) {
 
 #define CTRL_KEY(k) ((k) & 0x1f)
 
+
+int lastModifiedTime = 0;
 std::vector<std::string> buffer;
 bool selectionActive = false;
 int selStartY = 0, selStartX = 0;
@@ -29,11 +33,24 @@ void loadFile(const std::string& filename) {
     std::string line;
     while (std::getline(file, line)) buffer.push_back(line);
     if (buffer.empty()) buffer.push_back("");
+
+    auto ftime = std::filesystem::last_write_time(filename);
+    auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+                    ftime - decltype(ftime)::clock::now()
+                    + std::chrono::system_clock::now());
+    lastModifiedTime = std::chrono::system_clock::to_time_t(sctp); // time_t
 }
 
 void saveFile(const std::string& filename) {
     std::ofstream file(filename);
     for (auto& line : buffer) file << line << "\n";
+    
+    auto ftime = std::filesystem::last_write_time(filename);
+    auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+                    ftime - decltype(ftime)::clock::now()
+                    + std::chrono::system_clock::now());
+    lastModifiedTime = std::chrono::system_clock::to_time_t(sctp); // time_t
+    unsavedChanges = false;
 }
 
 void pasteClipboard(int& cursorY, int& cursorX, std::vector<std::string>& buffer) {
@@ -70,6 +87,16 @@ void pasteClipboard(int& cursorY, int& cursorX, std::vector<std::string>& buffer
         }
     }
 }
+
+// convert int time into human readable format
+std::string formatTime(int time) {
+    time_t t = time;
+    struct tm* tm_info = localtime(&t);
+    char buffer[26];
+    strftime(buffer, 26, "%Y-%m-%d %H:%M:%S", tm_info);
+    return std::string(buffer);
+}
+
 void draw(int cursorY, int cursorX, int rowOffset, const std::string& filename,
           int lineNumberScheme, int contentScheme, bool selectionActive, bool unsavedChanges) {
 
@@ -136,9 +163,10 @@ void draw(int cursorY, int cursorX, int rowOffset, const std::string& filename,
     // --- STATUS BAR ---
     attron(A_REVERSE);
     mvhline(LINES - 1, 0, ' ', COLS); // fill status bar
-    mvprintw(LINES - 1, 0, "CTRL+S=Save | CTRL+Q=Quit | Line %d/%d | Column %d/%d",
+    mvprintw(LINES - 1, 0, "CTRL+S=Save | CTRL+Q=Quit | Line %d/%d | Column %d/%d | Last Modified: %s",
              cursorY + 1, (int)buffer.size(),
-             cursorX + 1, (int)buffer[cursorY].size() + 1);
+             cursorX + 1, (int)buffer[cursorY].size() + 1,
+             formatTime(lastModifiedTime).c_str());
     attroff(A_REVERSE);
 
     // Move cursor
