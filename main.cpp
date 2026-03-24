@@ -274,7 +274,7 @@ int main(int argc, char* argv[]) {
             debug("OnRight is: " + onRight);
         }
         
-
+        // new
 
         // Toggle selection
         else if (ch == KEY_F(3)) {
