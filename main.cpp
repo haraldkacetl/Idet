@@ -8,6 +8,7 @@
 #include <chrono>
 #include <ctime>
 #include <string>
+
 std::ofstream debugOut;
 
 void debug(const std::string& msg) {
@@ -53,6 +54,16 @@ void saveFile(const std::string& filename) {
     lastModifiedTime = std::chrono::system_clock::to_time_t(sctp); // time_t
     unsavedChanges = false;
 }
+
+void copyClipboard(int startY , int endY){
+            for (int y = startY; y <= endY; y++) {
+                int lineStartX = (y == selStartY) ? selStartX : 0;
+                int lineEndX   = (y == selEndY) ? selEndX : buffer[y].size();
+                clipboard += buffer[y].substr(lineStartX, lineEndX - lineStartX);
+                if (y != endY) clipboard += "\n";
+            }
+}
+
 
 void pasteClipboard(int& cursorY, int& cursorX, std::vector<std::string>& buffer) {
     if (clipboard.empty()) return;
@@ -290,16 +301,9 @@ int main(int argc, char* argv[]) {
         }
         // Copy
         else if (ch == CTRL_KEY('c') && selectionActive) {
-            clipboard.clear();
-            int startY = std::min(selStartY, selEndY);
-            int endY   = std::max(selStartY, selEndY);
-            for (int y = startY; y <= endY; y++) {
-                int lineStartX = (y == selStartY) ? selStartX : 0;
-                int lineEndX   = (y == selEndY) ? selEndX : buffer[y].size();
-                clipboard += buffer[y].substr(lineStartX, lineEndX - lineStartX);
-                if (y != endY) clipboard += "\n";
 
-            }
+            clipboard.clear();
+            copyClipboard(std::min(selStartY, selEndY), std::max(selStartY, selEndY));
             debug("Copied to clipboard: " + clipboard);
             selectionActive = false;
         }
