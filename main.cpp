@@ -32,7 +32,7 @@ std::string clipboard;
 int lineNumberScheme = 1; // 1 or 2
 int contentScheme = 3;    // 3 or 4
 bool unsavedChanges = false;
-std::string modelPath = "/var/models/Qwen3.5-4B-Q4_K_M.gguf";
+std::string modelPath = "/var/models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf";
 void loadFile(const std::string& filename) {
     std::ifstream file(filename);
     std::string line;

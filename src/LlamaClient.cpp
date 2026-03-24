@@ -1,5 +1,10 @@
-#include "LlamaClient.hpp"
+#define LLAMA_API_IMPLEMENTATION   // must come before llama.h
+#include "llama.h"
 
+#include "LlamaClient.hpp"
+#include <random>
+#include <cmath>
+#include <algorithm>
 #include <thread>
 #include <fstream>
 
@@ -114,12 +119,53 @@ std::string LlamaClient::token_to_piece(llama_token token) {
 
     return std::string(buf.begin(), buf.end());
 }
-
 std::string LlamaClient::complete_text(const std::string& prompt, const GenerationConfig& config) {
-    if (!is_ready()) return "";
+    if (!is_ready()) {
+        log("Model not ready");
+        return "";
+    }
 
-    auto tokens = tokenize(prompt, true);
+    llama_context* c = ctx.get();
+    const llama_vocab* vocab = llama_model_get_vocab(model.get());
 
-    // Minimal placeholder (safe, won’t crash)
-    return "Prompt tokens: " + std::to_string(tokens.size());
+    // Tokenize prompt
+    std::vector<llama_token> tokens = tokenize(prompt, true);
+
+    // Safety check
+    if (tokens.empty()) {
+        log("No tokens generated from prompt");
+        return "";
+    }
+
+    // Just append the prompt tokens to “simulate feeding them”
+    std::vector<llama_token> input_tokens = tokens;
+
+    std::string output;
+
+    for (int i = 0; i < 5; ++i) {
+        const float* logits = llama_get_logits(c);
+
+        if (!logits) {
+            log("Failed to get logits; returning placeholder");
+            output += "<token>";
+            continue;
+        }
+
+        int n_vocab = llama_vocab_n_tokens(vocab);
+        int best_id = std::distance(logits, std::max_element(logits, logits + n_vocab));
+        llama_token best_token = static_cast<llama_token>(best_id);
+
+        if (best_token == llama_vocab_eos(vocab)) break;
+
+        std::string piece = token_to_piece(best_token);
+        output += piece;
+
+        // Append token to input for next iteration
+        input_tokens.push_back(best_token);
+
+        // If your llama.cpp version requires explicit evaluation per token:
+        // llama_eval(c, &best_token, 1, input_tokens.size(), config.n_threads);
+    }
+        log("output: " + output);
+    return output;
 }
