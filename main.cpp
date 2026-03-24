@@ -361,8 +361,8 @@ int main(int argc, char* argv[]) {
         }
 
         // Movement
-        else if (ch == KEY_UP) { if (cursorY > 0) cursorY--; }
-        else if (ch == KEY_DOWN) { if (cursorY < (int)buffer.size() - 1) cursorY++; }
+        else if (ch == KEY_UP) { if (cursorY > 0) cursorY--; if (cursorX > buffer[cursorY].size()){cursorX = buffer[cursorY].size();};}
+        else if (ch == KEY_DOWN) { if (cursorY < (int)buffer.size() - 1) cursorY++; if (cursorX > buffer[cursorY].size()) { debug("cursor smaller then bufferX"); cursorX = buffer[cursorY].size();};}
         else if (ch == KEY_LEFT) { if (cursorX > 0) cursorX--; }
         else if (ch == KEY_RIGHT) { if (cursorX < (int)buffer[cursorY].size()) cursorX++; }
         else if (ch == KEY_HOME) cursorX = 0;
