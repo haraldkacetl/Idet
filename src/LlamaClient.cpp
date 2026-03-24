@@ -1,11 +1,20 @@
-
 #include "LlamaClient.hpp"
-#include <iostream>
+
 #include <thread>
+#include <fstream>
 
 LlamaClient::LlamaClient(LogCallback logger) : debug_logger(logger) {
     llama_backend_init();
-    log("Llama backend initialized.");
+
+    // hook llama.cpp logs into your logger
+    llama_log_set([](ggml_log_level, const char* text, void* user_data) {
+        auto* cb = static_cast<LogCallback*>(user_data);
+        if (cb && *cb) {
+            (*cb)(text);
+        }
+    }, &debug_logger);
+
+    log("Backend initialized");
 }
 
 LlamaClient::~LlamaClient() {
@@ -17,94 +26,100 @@ void LlamaClient::log(const std::string& msg) {
 }
 
 bool LlamaClient::load_model(const std::string& model_path, int n_ctx) {
-    last_error = "";
+    last_error.clear();
 
-    // CRITICAL: Fix for the GGML_ASSERT crash
     if (model_path.empty()) {
-        last_error = "Model path is empty!";
+        last_error = "Model path is empty";
         log(last_error);
         return false;
     }
 
-    log("Attempting to load: " + model_path);
+    std::ifstream f(model_path);
+    if (!f.good()) {
+        last_error = "Model file does not exist: " + model_path;
+        log(last_error);
+        return false;
+    }
 
-    //auto m_params = llama_model_default_params();
-    //model.reset(llama_model_load_from_file(model_path.c_str(), m_params));
-    c_params.n_threads = std::thread::hardware_concurrency();
+    log("Loading model: " + model_path);
+
+    llama_model_params m_params = llama_model_default_params();
+    m_params.n_gpu_layers = 0;
+
+    model.reset(llama_model_load_from_file(model_path.c_str(), m_params));
 
     if (!model) {
-        last_error = "Failed to load model file (check path/permissions)";
+        last_error = "Failed to load model (check GGUF format)";
         log(last_error);
         return false;
     }
 
-    auto c_params = llama_context_default_params();
+    llama_context_params c_params = llama_context_default_params();
     c_params.n_ctx = n_ctx;
+    c_params.n_threads = std::thread::hardware_concurrency();
+
     ctx.reset(llama_init_from_model(model.get(), c_params));
 
     if (!ctx) {
-        last_error = "Failed to create context.";
+        last_error = "Failed to create context";
         log(last_error);
+        model.reset();
         return false;
     }
 
-    log("Model loaded successfully into context.");
+    log("Model loaded successfully");
     return true;
 }
 
-// ... tokenize and token_to_piece remain the same as previous fix ...
-
-std::string LlamaClient::token_to_piece(llama_token token) {
-    const struct llama_vocab* vocab = llama_model_get_vocab(model.get());
-    
-    std::vector<char> result(32);
-    // Updated: passing 'vocab' as first argument
-    int n_tokens = llama_token_to_piece(vocab, token, result.data(), result.size(), 0, false);
-    if (n_tokens < 0) {
-        result.resize(-n_tokens);
-        llama_token_to_piece(vocab, token, result.data(), result.size(), 0, false);
-    } else {
-        result.resize(n_tokens);
-    }
-    return std::string(result.data(), result.size());
-}
-
-std::string LlamaClient::complete_text(const std::string& prompt, const GenerationConfig& config) {
-    if (!is_ready()) return "";
-    auto tokens = tokenize(prompt, true);
-    // Logic for inference loop goes here...
-    return "Tokens generated: " + std::to_string(tokens.size());
-}
 std::vector<llama_token> LlamaClient::tokenize(const std::string& text, bool add_bos) {
-    const struct llama_vocab* vocab = llama_model_get_vocab(model.get());
+    const llama_vocab* vocab = llama_model_get_vocab(model.get());
 
-    int n_tokens = text.size() + (add_bos ? 1 : 0);
+    int n_tokens = -llama_tokenize(
+        vocab,
+        text.c_str(),
+        text.length(),
+        nullptr,
+        0,
+        add_bos,
+        false
+    );
+
     std::vector<llama_token> tokens(n_tokens);
 
-    // Tokenize
-    int result = llama_tokenize(
+    llama_tokenize(
         vocab,
         text.c_str(),
         text.length(),
         tokens.data(),
         tokens.size(),
         add_bos,
-        false  // special tokens
+        false
     );
 
-    if (result < 0) {
-        tokens.resize(-result);
-        result = llama_tokenize(
-            vocab,
-            text.c_str(),
-            text.length(),
-            tokens.data(),
-            tokens.size(),
-            add_bos,
-            false
-        );
+    return tokens;
+}
+
+std::string LlamaClient::token_to_piece(llama_token token) {
+    const llama_vocab* vocab = llama_model_get_vocab(model.get());
+
+    std::vector<char> buf(32);
+    int n = llama_token_to_piece(vocab, token, buf.data(), buf.size(), 0, false);
+
+    if (n < 0) {
+        buf.resize(-n);
+        llama_token_to_piece(vocab, token, buf.data(), buf.size(), 0, false);
+    } else {
+        buf.resize(n);
     }
 
-    tokens.resize(result);
-    return tokens;
+    return std::string(buf.begin(), buf.end());
+}
+
+std::string LlamaClient::complete_text(const std::string& prompt, const GenerationConfig& config) {
+    if (!is_ready()) return "";
+
+    auto tokens = tokenize(prompt, true);
+
+    // Minimal placeholder (safe, won’t crash)
+    return "Prompt tokens: " + std::to_string(tokens.size());
 }

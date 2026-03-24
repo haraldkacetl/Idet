@@ -3,11 +3,9 @@
 #include <vector>
 #include <string>
 #include <algorithm>
-#include <fstream>
 #include <filesystem>
 #include <chrono>
 #include <ctime>
-#include <string>
 #include "headers/LlamaClient.hpp"
 
 
@@ -238,6 +236,10 @@ void draw(int cursorY, int cursorX, int rowOffset, const std::string& filename,
     move(cursorY - rowOffset + 1, cursorX + lineNumberWidth);
     refresh();
 }
+bool checkFileExistance(const std::string& filePath) {
+    std::ifstream file(filePath);
+    return file.good();
+}
 
 
 
@@ -263,7 +265,17 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "Failed to open debug pipe: %s\n", debugTTY.c_str());
     }
     }
-    LlamaClient llama;
+    LlamaClient llama([](const std::string& msg) {
+    debug(msg);
+    });
+    if (checkFileExistance(modelPath)){
+    debug("Model file exists");
+    }
+    else 
+    {
+        debug("Model file does not exist!: " + modelPath);
+    }
+    
     bool loaded = llama.load_model(modelPath);
     
     if (!loaded) {
@@ -324,6 +336,7 @@ int main(int argc, char* argv[]) {
         // 2. Check if the model is actually loaded
         if (llama.is_ready()) {
             debug("AI Status: Model is ready. Tokenizing...");
+            debug("completing" + txtBefore);
             
             // 3. Call your complete_text method
             // This will trigger the llama_tokenize and llama_model_get_vocab logic
