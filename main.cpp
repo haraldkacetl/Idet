@@ -22,7 +22,7 @@ void debug(const std::string& msg) {
 
 #define CTRL_KEY(k) ((k) & 0x1f)
 
-
+// init Vars
 int lastModifiedTime = 0;
 std::vector<std::string> buffer;
 bool selectionActive = false;
@@ -33,6 +33,14 @@ int lineNumberScheme = 1; // 1 or 2
 int contentScheme = 3;    // 3 or 4
 bool unsavedChanges = false;
 std::string modelPath = "/var/models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf";
+bool llamaInit = false;
+bool modelLoaded = false;
+// init global llama
+LlamaClient llama([](const std::string& msg) {
+    debug(msg);
+});
+
+
 void loadFile(const std::string& filename) {
     std::ifstream file(filename);
     std::string line;
@@ -241,7 +249,21 @@ bool checkFileExistance(const std::string& filePath) {
     return file.good();
 }
 
+void initLlama() {
+    modelLoaded = llama.load_model(modelPath);
 
+    if (!modelLoaded) {
+        debug("Failed to load Llama model. Check the path! Used path: " + modelPath);
+    } else {
+        debug("Llama model loaded successfully. Used model path: " + modelPath);
+    }
+
+    if (checkFileExistance(modelPath)) {
+        debug("Model file exists");
+    } else {
+        debug("Model file does not exist!: " + modelPath);
+    }
+}
 
 int main(int argc, char* argv[]) {
 
@@ -254,10 +276,15 @@ int main(int argc, char* argv[]) {
             printf("Usage: %s <filename> [-d debug_pipe]\n", argv[0]);
             return 0;
         }
-    if (std::string(argv[i]) == "-v" || std::string(argv[i]) == "--version") {
-        printf("Version %s\n", version.c_str());
-        return 0;
-    }
+        if (std::string(argv[i]) == "-v" || std::string(argv[i]) == "--version") {
+            printf("Version %s\n", version.c_str());
+            return 0;
+        }
+        if (std::string(argv[i]) == "-m" || std::string(argv[i]) == "--model") {
+            if (argv[i + 1]){
+                modelPath = argv[i + 1];
+            }
+        }
     }
     if (!debugTTY.empty()) {
     debugOut.open(debugTTY);
@@ -265,24 +292,12 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "Failed to open debug pipe: %s\n", debugTTY.c_str());
     }
     }
-    LlamaClient llama([](const std::string& msg) {
-    debug(msg);
-    });
-    if (checkFileExistance(modelPath)){
-    debug("Model file exists");
-    }
-    else 
-    {
-        debug("Model file does not exist!: " + modelPath);
-    }
+    //LlamaClient llama([](const std::string& msg) {
+    //debug(msg);
+    //});
+
     
-    bool loaded = llama.load_model(modelPath);
-    
-    if (!loaded) {
-        debug("Failed to load Llama model. Check the path! Used path: " + modelPath);
-    } else {
-        debug("Llama model loaded successfully. Used model path: " + modelPath);
-    }
+
     debug("Editor started");
     loadFile(argv[1]);
 
@@ -332,7 +347,9 @@ int main(int argc, char* argv[]) {
         if (cursorY < buffer.size()) {
             txtBefore = buffer[cursorY];
         }
-
+        if (llamaInit == false){
+            initLlama();
+        }
         // 2. Check if the model is actually loaded
         if (llama.is_ready()) {
             debug("AI Status: Model is ready. Tokenizing...");
