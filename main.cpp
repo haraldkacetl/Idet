@@ -176,8 +176,9 @@ std::string subtractStringLeft(const std::string fullString, int subtraction) {
     return fullString.substr(subtraction);
 }
 
-void draw(int cursorY, int cursorX, int rowOffset, const std::string& filename,
-          int lineNumberScheme, int contentScheme, bool selectionActive, bool unsavedChanges, int colOffset) {
+void draw(int cursorY, int cursorX, int& rowOffset, const std::string& filename,
+          int lineNumberScheme, int contentScheme, bool selectionActive,
+          bool unsavedChanges, int& colOffset) {
 
 erase();
 
@@ -189,7 +190,17 @@ if (visibleWidth < 1) visibleWidth = 1;
 // Ensure cursorY in range
 if (cursorY < 0) cursorY = 0;
 if (cursorY >= (int)buffer.size()) cursorY = (int)buffer.size() - 1;
+// --- VERTICAL SCROLLING: update rowOffset to ensure cursor visible ---
+if (cursorY < rowOffset) {
+    rowOffset = cursorY;
+} else if (cursorY >= rowOffset + maxRows) {
+    rowOffset = cursorY - maxRows + 1;
+}
+if (rowOffset < 0) rowOffset = 0;
 
+// Clamp rowOffset so we don't scroll past end of buffer
+int maxRowOffset = std::max(0, (int)buffer.size() - maxRows);
+if (rowOffset > maxRowOffset) rowOffset = maxRowOffset;
 // Clamp cursorX to current line length (allowing position at end)
 if (cursorX < 0) cursorX = 0;
 int lineLen = (cursorY >= 0 && cursorY < (int)buffer.size()) ? (int)buffer[cursorY].size() : 0;
