@@ -37,6 +37,9 @@ std::string modelPath = "/var/models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf";
 bool llamaInit = false;
 bool modelLoaded = false;
 bool createNewFile = true;
+std::string llamaCompletionHost = "http://localhost:8080"; //URL of llamacpp
+std::string llamaCompletionNPredict = "5"; // how many tokens to generate with TAB
+
 // init global llama
 LlamaClient llama([](const std::string& msg) {
     debug(msg);
@@ -274,6 +277,7 @@ void createNewFileFunc(const std::string &filename) {
 }
 
 
+
 int main(int argc, char* argv[]) {
     if (argc <= 1) return 1;
     std::string_view s{argv[1]};
@@ -298,6 +302,12 @@ int main(int argc, char* argv[]) {
             if (argv[i + 1]){
                 modelPath = argv[i + 1];
             }
+        }
+        if (std::string(argv[i]) == "-h" || std::string(argv[i]) == "--host") {
+            llamaCompletionHost = argv[i];
+        }
+        if (std::string(argv[i]) == "-n" || std::string(argv[i]) == "--npredict") {
+            llamaCompletionNPredict = argv[i];
         }
         if (std::string(argv[i]) == "--noNewFile") {
             createNewFile = false;
@@ -392,7 +402,7 @@ int main(int argc, char* argv[]) {
         } else {
             debug("AI Error: Model not loaded! Check load_model() path.");
         }
-        std::string llamaOutput = llama_completion_content(txtBefore, "http://localhost:8080/completion", "5",
+        std::string llamaOutput = llama_completion_content(txtBefore, (llamaCompletionHost + "/completion"), llamaCompletionNPredict,
                                    [](const std::string& msg){ debug(msg); });
         debug("got output: " + llamaOutput);
         for (std::size_t i = 0; i < llamaOutput.size(); ++i) {
