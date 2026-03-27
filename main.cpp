@@ -3,6 +3,8 @@
 #include <vector>
 #include <string>
 #include <ncurses.h>
+#include <codecvt>
+#include <stdexcept>
 
 #include <fstream>
 #include <vector>
@@ -53,16 +55,18 @@ const size_t DEBUG_MAX = 10000;
 
 static std::wstring utf8_to_wstring(const std::string &s) {
     if (s.empty()) return L"";
-    std::mbstate_t state = std::mbstate_t();
-    const char *src = s.c_str();
-    // Bestimme Länge
-    size_t len = std::mbsrtowcs(nullptr, &src, 0, &state);
-    if (len == (size_t)-1) return L"";
-    std::wstring w;
-    w.resize(len);
-    src = s.c_str();
-    std::mbsrtowcs(&w[0], &src, len, &state);
-    return w;
+
+    try {
+        std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
+        return converter.from_bytes(s);
+    } catch (const std::range_error&) {
+        // Fallback: convert as best we can, replacing invalid bytes
+        std::wstring result;
+        for (unsigned char c : s) {
+            result += static_cast<wchar_t>(c);
+        }
+        return result;
+    }
 }
 
 void debugWrite(std::ofstream& out, const std::string& msg) {
@@ -284,7 +288,6 @@ mvprintw(0, 0, "Idet-Editor - File: %s%s | Selection: %s",
 attroff(A_BOLD);
 int selTop = std::min(selStartY, selEndY);
 int selBottom = std::max(selStartY, selEndY);
-static std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
 for (int i = 0; i < maxRows && (rowOffset + i) < (int)buffer.size(); ++i) {
     int fileLine = rowOffset + i;
 
@@ -302,8 +305,8 @@ for (int i = 0; i < maxRows && (rowOffset + i) < (int)buffer.size(); ++i) {
     if (fileLine >= (int)buffer.size()) continue;
     std::string& line = buffer[fileLine];
 
-    // 🔹 Convert UTF-8 → wide string
-    std::wstring wline = converter.from_bytes(line);
+    // 🔹 Convert UTF-8 → wide string using safe conversion
+    std::wstring wline = utf8_to_wstring(line);
 
     int startX = colOffset;
     int endX = std::min((int)wline.size(), colOffset + visibleWidth);
@@ -396,25 +399,14 @@ std::size_t char_to_byte_index(const std::string &s, std::size_t char_idx) {
     return bytes;
 }
 
-void remakeBufferUtf8(std::vector<std::string>& buffer) {
-    std::vector<std::string> newBuffer;
-    
-    
-    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-
-    for (auto& str : buffer) {
-        
-        std::wstring wideStr(str.begin(), str.end());
-        
-        
-        std::string utf8Str = converter.to_bytes(wideStr);
-        newBuffer.push_back(utf8Str);
-    }
-
-    buffer = newBuffer; // Replace old buffer
-}
+// Removed broken remakeBufferUtf8 function - not needed
+// The buffer already stores UTF-8 strings correctly
 
 int main(int argc, char* argv[]) {
+    // Set locale for UTF-8 support
+    setlocale(LC_ALL, "");
+    std::locale::global(std::locale(""));
+    
     if (argc <= 1) return 1;
     std::string_view s{argv[1]};
     if (s.size() && s[0] == '-') {
@@ -687,59 +679,130 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // Movement
-        else if (ch == KEY_UP) { if (cursorY > 0) cursorY--; if (cursorX > buffer[cursorY].size()){cursorX = buffer[cursorY].size();};}
-        else if (ch == KEY_DOWN) { if (cursorY < (int)buffer.size() - 1) cursorY++; if (cursorX > buffer[cursorY].size()) { debugWrite("cursor smaller then bufferX"); cursorX = buffer[cursorY].size();};}
+        // Movement - convert character positions to byte positions for navigation
+        else if (ch == KEY_UP) { if (cursorY > 0) cursorY--; }
+        else if (ch == KEY_DOWN) { if (cursorY < (int)buffer.size() - 1) cursorY++; }
         else if (ch == KEY_LEFT) { if (cursorX > 0) cursorX--; }
-        else if (ch == KEY_RIGHT) { if (cursorX < (int)buffer[cursorY].size()) cursorX++; }
+        else if (ch == KEY_RIGHT) { 
+            // Count characters in current line using UTF-8 aware method
+            int charCount = 0;
+            size_t bytePos = 0;
+            while (bytePos < buffer[cursorY].size()) {
+                unsigned char c = static_cast<unsigned char>(buffer[cursorY][bytePos]);
+                if ((c & 0x80) == 0) bytePos += 1;
+                else if ((c & 0xE0) == 0xC0) bytePos += 2;
+                else if ((c & 0xF0) == 0xE0) bytePos += 3;
+                else if ((c & 0xF8) == 0xF0) bytePos += 4;
+                else bytePos += 1;
+                charCount++;
+            }
+            if (cursorX < charCount) cursorX++; 
+        }
         else if (ch == KEY_HOME) cursorX = 0;
-        else if (ch == KEY_END) cursorX = buffer[cursorY].size();
-        // Enter
+        else if (ch == KEY_END) { 
+            // Count total characters in line
+            int charCount = 0;
+            size_t bytePos = 0;
+            while (bytePos < buffer[cursorY].size()) {
+                unsigned char c = static_cast<unsigned char>(buffer[cursorY][bytePos]);
+                if ((c & 0x80) == 0) bytePos += 1;
+                else if ((c & 0xE0) == 0xC0) bytePos += 2;
+                else if ((c & 0xF0) == 0xE0) bytePos += 3;
+                else if ((c & 0xF8) == 0xF0) bytePos += 4;
+                else bytePos += 1;
+                charCount++;
+            }
+            cursorX = charCount;
+        }
+        // Enter - convert cursor character position to byte position
         else if (ch == 10) {
-            std::string newLine = buffer[cursorY].substr(cursorX);
-            buffer[cursorY] = buffer[cursorY].substr(0, cursorX);
+            std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
+            std::string newLine = buffer[cursorY].substr(bytePos);
+            buffer[cursorY] = buffer[cursorY].substr(0, bytePos);
             buffer.insert(buffer.begin() + cursorY + 1, newLine);
             cursorY++;
             cursorX = 0;
         }
-        // Backspace
+        // Backspace - convert cursor character position to byte position
         else if (ch == KEY_BACKSPACE || ch == 127) {
             if (cursorX > 0) {
-                buffer[cursorY].erase(cursorX - 1, 1);
+                // Get byte position before current cursor position
+                std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
+                // Get byte position of previous character
+                std::size_t prevBytePos = char_to_byte_index(buffer[cursorY], cursorX - 1);
+                // Erase the character (from previous position to current position)
+                buffer[cursorY].erase(prevBytePos, bytePos - prevBytePos);
                 cursorX--;
             } else if (cursorY > 0) {
-                cursorX = buffer[cursorY - 1].size();
+                // Count characters in previous line
+                int prevLineCharCount = 0;
+                size_t bytePos = 0;
+                while (bytePos < buffer[cursorY - 1].size()) {
+                    unsigned char c = static_cast<unsigned char>(buffer[cursorY - 1][bytePos]);
+                    if ((c & 0x80) == 0) bytePos += 1;
+                    else if ((c & 0xE0) == 0xC0) bytePos += 2;
+                    else if ((c & 0xF0) == 0xE0) bytePos += 3;
+                    else if ((c & 0xF8) == 0xF0) bytePos += 4;
+                    else bytePos += 1;
+                    prevLineCharCount++;
+                }
+                cursorX = prevLineCharCount;
                 buffer[cursorY - 1] += buffer[cursorY];
                 buffer.erase(buffer.begin() + cursorY);
                 cursorY--;
             }
         }
-        else if (ch == 195) {
-            debugWrite("some crazy key pressed");
-            int newch = getch();
-            debugWrite("NEWCH: " + newch);
-                if (newch == 164){
-                    remakeBufferUtf8(buffer);
-                    std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
-                    buffer[cursorY].insert(bytePos, u8"ä");
-
-                    std::string joined = std::accumulate(buffer.begin(), buffer.end(), std::string());
-                    debugWrite("buffer:" + joined);
+        // Handle UTF-8 multibyte sequences from keyboard
+        else if (ch >= 128 && ch <= 255) {
+            // This is a UTF-8 byte from keyboard input
+            debugWrite("UTF-8 byte received: " + std::to_string(ch));
+            
+            // For multibyte UTF-8, we need to read more bytes
+            std::string utf8_char;
+            utf8_char += static_cast<char>(ch);
+            
+            // Determine how many more bytes to read based on first byte
+            int remaining_bytes = 0;
+            unsigned char uc = static_cast<unsigned char>(ch);
+            if ((uc & 0xE0) == 0xC0) remaining_bytes = 1;      // 2-byte sequence
+            else if ((uc & 0xF0) == 0xE0) remaining_bytes = 2; // 3-byte sequence
+            else if ((uc & 0xF8) == 0xF0) remaining_bytes = 3; // 4-byte sequence
+            
+            // Read the remaining bytes
+            for (int i = 0; i < remaining_bytes; ++i) {
+                int next_byte = getch();
+                if (next_byte > 0) {
+                    utf8_char += static_cast<char>(next_byte);
                 }
-            cursorX++;
-            unsavedChanges = true;
-        }
-        // Printable characters
-        else if (ch >= 32 && ch <= 126) {
+            }
+            
             // Ensure the line is long enough
             if (cursorX > buffer[cursorY].size()) {
-                buffer[cursorY].resize(cursorX, ' '); // Fill missing spaces
+                buffer[cursorY].resize(cursorX, ' ');
+            }
+            
+            // Convert cursor character position to byte position for insertion
+            std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
+            
+            // Insert UTF-8 character at byte position
+            buffer[cursorY].insert(bytePos, utf8_char);
+            cursorX += 1;  // Move cursor by 1 character (not bytes)
+            unsavedChanges = true;
+        }
+        // Printable ASCII characters
+        else if (ch >= 32 && ch <= 126) {
+            // Convert cursor character position to byte position for insertion
+            std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
+            
+            // Ensure the line is long enough
+            if (bytePos > buffer[cursorY].size()) {
+                buffer[cursorY].resize(bytePos, ' '); // Fill missing spaces
             }
 
-            // Insert character at cursor position
-            buffer[cursorY].insert(buffer[cursorY].begin() + cursorX, ch);
+            // Insert character at byte position
+            buffer[cursorY].insert(bytePos, 1, static_cast<char>(ch));
 
-            cursorX++;
+            cursorX += 1;  // Move cursor by 1 character
             unsavedChanges = true;
         }
 
