@@ -17,7 +17,7 @@ sudo apt install g++
 ```
 Compile:
 ```bash
-g++ main.cpp  -lncursesw -lcurl -o editor
+g++ main.cpp  -lncursesw -lcurl -o idet
 ```
 
 
