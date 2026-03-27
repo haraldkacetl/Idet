@@ -689,14 +689,14 @@ int main(int argc, char* argv[]) {
             }
         }
         else if (ch == 195) {
-            if (cursorX > buffer[cursorY].size()) {
-                buffer[cursorY].resize(cursorX, ' '); // Fill missing spaces
-            }
-
-            // Insert character at cursor position
-            char spChar = 'Ä' ;
-            buffer[cursorY].insert(buffer[cursorY].begin() + cursorX, spChar);
-
+            debugWrite("some crazy key pressed");
+            int newch = getch();
+            debugWrite("NEWCH: " + newch);
+                if (newch == 164){
+                    
+                    const char* s = u8"Ä";            // in UTF‑8: 2 Bytes (0xC3 0x84)
+                    buffer[cursorY].insert(buffer[cursorY].begin() + cursorX, s, s + std::strlen(s));
+                }
             cursorX++;
             unsavedChanges = true;
         }
