@@ -55,7 +55,7 @@ std::string llama_completion(const std::string& prompt,
     return response;
 }
 std::string llama_completion_content(const std::string& prompt,
-                                     std::string curlOptUrl = "http://localhost:8080/completion",
+                                     std::string curlOptUrl = "http://localhost:8080/olla/llamacpp/v1/completions",
                                      std::string nPredict = "5",
                                      LogFn logger = nullptr) {
     std::string raw = llama_completion(prompt, curlOptUrl, nPredict, logger);

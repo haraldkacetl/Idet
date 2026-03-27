@@ -495,7 +495,7 @@ void getInlineSuggestion(int cursorX, int cursorY){
         debugWrite("vector: " + StrVecTxt);
         std::string promptText = getStingFromVec(vectorBeforetxt);
         debugWrite("promptText: " + promptText);
-        std::string llamaOutput = llama_completion_content(promptText, (llamaCompletionHost + "/completion"), std::to_string(inlineSuggestionNPredict),
+        std::string llamaOutput = llama_completion_content(promptText, (llamaCompletionHost + "/olla/llamacpp/v1/completions"), std::to_string(inlineSuggestionNPredict),
                                    [](const std::string& msg){ debugWrite(msg); });
         debugWrite("LlamaOutput is: " + llamaOutput);
         // Store inline buffer and set flag to display on next draw
@@ -688,7 +688,7 @@ int main(int argc, char* argv[]) {
                     std::string promptText = getStingFromVec(vectorBeforetxt);
                     debugWrite("promptText: " + promptText);
                     std::string llamaOutput = llama_completion_content(promptText,
-                                            (llamaCompletionHost + "/completion"),
+                                            (llamaCompletionHost + "/olla/llamacpp/v1/completions"),
                                             llamaCompletionNPredict,
                                             [](const std::string& msg){ debugWrite(msg); });
                     debugWrite("got output: " + llamaOutput);
