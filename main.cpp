@@ -50,6 +50,7 @@ bool createNewFile = true;
 std::string configPath = "~/.config/idet/idet.cfg";
 std::string llamaCompletionHost = "http://localhost:8080"; //URL of llamacpp
 std::string llamaCompletionNPredict = "5"; // how many tokens to generate with TAB
+int lastEditTime = 0;
 const size_t DEBUG_MAX = 10000;
 
 void displayInlineSuggestion(const std::vector<std::string>& inlineBuffer,
@@ -431,6 +432,46 @@ std::size_t char_to_byte_index(const std::string &s, std::size_t char_idx) {
 // Removed broken remakeBufferUtf8 function - not needed
 // The buffer already stores UTF-8 strings correctly
 
+std::vector<std::string> generateInlineBuffer(std::string inputBufferString){
+    
+
+
+}
+
+void getInlineSuggestion(int cursorX, int cursorY){
+        debugWrite("Tab pressed - Triggering AI Completion");
+        std::vector<std::string> vectorBeforetxt;
+        vectorBeforetxt.reserve(static_cast<size_t>(cursorY) + 1); // avoid reallocs
+
+        int limitLine = std::max(0, cursorY); // ensure non-negative
+        for (int vecLine = 0; vecLine < limitLine && vecLine < static_cast<int>(buffer.size()); ++vecLine) {
+            vectorBeforetxt.push_back(buffer[vecLine]);
+        }
+        std::string charsBefore;
+        if (cursorY >= 0 && cursorY < static_cast<int>(buffer.size())) {
+            int clampX = std::clamp(cursorX, 0, static_cast<int>(buffer[cursorY].size()));
+            charsBefore = buffer[cursorY].substr(0, clampX);
+        } // else charsBefore stays empty
+
+        vectorBeforetxt.push_back(charsBefore);
+
+        // Join with commas
+        std::string StrVecTxt;
+        StrVecTxt.reserve(vectorBeforetxt.size() * 8);
+        for (size_t i = 0; i < vectorBeforetxt.size(); ++i) {
+            if (i) StrVecTxt.push_back(',');
+            StrVecTxt += vectorBeforetxt[i];
+        }
+        debugWrite("vector: " + StrVecTxt);
+        std::string promptText = getStingFromVec(vectorBeforetxt);
+        debugWrite("promptText: " + promptText);
+        std::string llamaOutput = llama_completion_content(promptText, (llamaCompletionHost + "/completion"), llamaCompletionNPredict,
+                                   [](const std::string& msg){ debugWrite(msg); });
+        
+        //displayInlineSuggestion(inlineBuffer);
+}
+
+
 int main(int argc, char* argv[]) {
     // Set locale for UTF-8 support
     setlocale(LC_ALL, "");
@@ -536,6 +577,9 @@ int main(int argc, char* argv[]) {
         draw(cursorY, cursorX, rowOffset, argv[1], lineNumberScheme, contentScheme, selectionActive, unsavedChanges, colOffset);
 
         ch = getch();
+        auto now = std::chrono::system_clock::now();
+        std::time_t timeToTimeNow = std::chrono::system_clock::to_time_t(now);
+        lastEditTime = timeToTimeNow;
         debugWrite("Key pressed: " + std::to_string(ch));
 
         // Quit
