@@ -20,7 +20,7 @@ git pull
 
 echo "Compiling main.cpp to editor..."
     
-g++ main.cpp  -lncurses -lcurl -o editor
+g++ main.cpp  -lncursesw -lcurl -o editor
     
 chmod a+x editor
 echo "Installation complete. Run './editor' to start the editor."
