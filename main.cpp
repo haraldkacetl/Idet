@@ -362,7 +362,13 @@ int main(int argc, char* argv[]) {
             }
         }
         if (std::string(argv[i]) == "-h" || std::string(argv[i]) == "--host") {
-            llamaCompletionHost = argv[i];
+            if (argv[i+1][0] == 'h' || argv[i+1][1] == 't'){
+                llamaCompletionHost = argv[i + 1];
+            }
+            else{
+                llamaCompletionHost = "http://";
+                llamaCompletionHost.append(argv[i + 1]);
+            }
         }
         if (std::string(argv[i]) == "-n" || std::string(argv[i]) == "--npredict") {
             llamaCompletionNPredict = argv[i];
