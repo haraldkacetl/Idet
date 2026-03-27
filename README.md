@@ -9,11 +9,12 @@ Install dependencies:
 ```bash
 sudo apt install libncurses-dev
 ```
+With llama.cpp:
 Replace the placeholders and run the compiler command:
 ```bash
 g++ main.cpp src/LlamaClient.cpp -I./headers -I"<path-to-llama.cpp>/include" -L"<path-to-llama.cpp>" -lllama -lncurses -lcurl -o editor
 ```
-without direct Llama
+Without llama.cpp:
 ```bash
  g++ main.cpp  -lncurses -lcurl -o editor
 ```
