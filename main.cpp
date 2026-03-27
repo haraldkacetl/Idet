@@ -582,311 +582,285 @@ int main(int argc, char* argv[]) {
         lastEditTime = timeToTimeNow;
         debugWrite("Key pressed: " + std::to_string(ch));
 
-        // Quit
-        if (ch == CTRL_KEY('q')) break;
-        // Save
-        else if (ch == CTRL_KEY('s')) saveFile(argv[1]);
-        // Toggle color scheme
-        else if (ch == KEY_F(2)) {
-            lineNumberScheme = (lineNumberScheme == 1) ? 2 : 1;
-            contentScheme    = (contentScheme == 3) ? 4 : 3;
-        }
-        // Tab completion
-        else if (ch == 9) { // Tab Key
-        debugWrite("Tab pressed - Triggering AI Completion");
-        std::vector<std::string> vectorBeforetxt;
-        vectorBeforetxt.reserve(static_cast<size_t>(cursorY) + 1); // avoid reallocs
-
-        int limitLine = std::max(0, cursorY); // ensure non-negative
-        for (int vecLine = 0; vecLine < limitLine && vecLine < static_cast<int>(buffer.size()); ++vecLine) {
-            vectorBeforetxt.push_back(buffer[vecLine]);
-        }
-        std::string charsBefore;
-        if (cursorY >= 0 && cursorY < static_cast<int>(buffer.size())) {
-            int clampX = std::clamp(cursorX, 0, static_cast<int>(buffer[cursorY].size()));
-            charsBefore = buffer[cursorY].substr(0, clampX);
-        } // else charsBefore stays empty
-
-        vectorBeforetxt.push_back(charsBefore);
-
-        // Join with commas
-        std::string StrVecTxt;
-        StrVecTxt.reserve(vectorBeforetxt.size() * 8);
-        for (size_t i = 0; i < vectorBeforetxt.size(); ++i) {
-            if (i) StrVecTxt.push_back(',');
-            StrVecTxt += vectorBeforetxt[i];
-        }
-        debugWrite("vector: " + StrVecTxt);
-        std::string promptText = getStingFromVec(vectorBeforetxt);
-        debugWrite("promptText: " + promptText);
-        std::string llamaOutput = llama_completion_content(promptText, (llamaCompletionHost + "/completion"), llamaCompletionNPredict,
-                                   [](const std::string& msg){ debugWrite(msg); });
-        debugWrite("got output: " + llamaOutput);
-        for (std::size_t i = 0; i < llamaOutput.size(); ++i) {
-            char charLlamaOutput = llamaOutput[i];
-            if (charLlamaOutput == '\n') {
-                std::string newLine = buffer[cursorY].substr(cursorX);
-                buffer[cursorY] = buffer[cursorY].substr(0, cursorX);
-                buffer.insert(buffer.begin() + cursorY + 1, newLine);
-                cursorY++;
-                cursorX = 0;
-                // Move cursor to next line
-
-                // Ensure buffer has enough lines
-                if (cursorY >= buffer.size()) {
-                    buffer.emplace_back("");
+        switch (ch) {
+            case CTRL_KEY('q'):
+                endwin();
+                exit(0);
+            case CTRL_KEY('s'):
+                saveFile(argv[1]);
+                break;
+            case KEY_F(2):
+                lineNumberScheme = (lineNumberScheme == 1) ? 2 : 1;
+                contentScheme    = (contentScheme == 3) ? 4 : 3;
+                break;
+            case 9: {
+                debugWrite("Tab pressed - Triggering AI Completion");
+                std::vector<std::string> vectorBeforetxt;
+                vectorBeforetxt.reserve(static_cast<size_t>(cursorY) + 1);
+                int limitLine = std::max(0, cursorY);
+                for (int vecLine = 0; vecLine < limitLine && vecLine < static_cast<int>(buffer.size()); ++vecLine) {
+                    vectorBeforetxt.push_back(buffer[vecLine]);
                 }
-                cursorX = 0;
-                continue;
+                std::string charsBefore;
+                if (cursorY >= 0 && cursorY < static_cast<int>(buffer.size())) {
+                    int clampX = std::clamp(cursorX, 0, static_cast<int>(buffer[cursorY].size()));
+                    charsBefore = buffer[cursorY].substr(0, clampX);
+                }
+                vectorBeforetxt.push_back(charsBefore);
+                std::string StrVecTxt;
+                StrVecTxt.reserve(vectorBeforetxt.size() * 8);
+                for (size_t i = 0; i < vectorBeforetxt.size(); ++i) {
+                    if (i) StrVecTxt.push_back(',');
+                    StrVecTxt += vectorBeforetxt[i];
+                }
+                debugWrite("vector: " + StrVecTxt);
+                std::string promptText = getStingFromVec(vectorBeforetxt);
+                debugWrite("promptText: " + promptText);
+                std::string llamaOutput = llama_completion_content(promptText,
+                                        (llamaCompletionHost + "/completion"),
+                                        llamaCompletionNPredict,
+                                        [](const std::string& msg){ debugWrite(msg); });
+                debugWrite("got output: " + llamaOutput);
+                for (size_t i = 0; i < llamaOutput.size(); ++i) {
+                    char charLlamaOutput = llamaOutput[i];
+                    if (charLlamaOutput == '\n') {
+                        std::string newLine = buffer[cursorY].substr(cursorX);
+                        buffer[cursorY] = buffer[cursorY].substr(0, cursorX);
+                        buffer.insert(buffer.begin() + cursorY + 1, newLine);
+                        cursorY++;
+                        cursorX = 0;
+                        if (cursorY >= buffer.size()) {
+                            buffer.emplace_back("");
+                        }
+                        cursorX = 0;
+                        continue;
+                    }
+                    if (charLlamaOutput >= 32 && charLlamaOutput <= 126) {
+                        if (cursorY >= buffer.size()) {
+                            buffer.emplace_back("");
+                        }
+                        if (cursorX > buffer[cursorY].size()) {
+                            buffer[cursorY].resize(cursorX, ' ');
+                        }
+                        buffer[cursorY].insert(buffer[cursorY].begin() + cursorX,
+                                            charLlamaOutput);
+                        cursorX++;
+                        unsavedChanges = true;
+                    }
+                }
+                break;
             }
-            if (charLlamaOutput >= 32 && charLlamaOutput <= 126) {
-                // Ensure the line exists
-                if (cursorY >= buffer.size()) {
-                    buffer.emplace_back("");
-                }
-                // Ensure the line is long enough
-                if (cursorX > buffer[cursorY].size()) {
-                    buffer[cursorY].resize(cursorX, ' ');
-                }
-                // Insert character at cursor position
-                buffer[cursorY].insert(buffer[cursorY].begin() + cursorX, charLlamaOutput);
-
-                cursorX++;
-                unsavedChanges = true;
+            case 402: {
+                debugWrite("shift + arrow right");
+                std::string stringAfter = subtractStringLeft(buffer[cursorY], cursorX);
+                debugWrite("cursorY pos: " + std::to_string(cursorY));
+                debugWrite("current line content:" + buffer[cursorY]);
+                std::string onRight = getWordSelectionRight(stringAfter);
+                debugWrite("OnRight is: " + onRight);
+                break;
             }
-        }
-
-
-    }
-        // shift + arrow key to select
-        else if (ch == 402)
-        {
-            debugWrite("shift + arrow right");
-
-            std::string stringAfter = subtractStringLeft(buffer[cursorY], cursorX);
-            debugWrite("cursorY pos: " + std::to_string(cursorY));
-            debugWrite("current line content:" + buffer[cursorY]);
-            std::string onRight = getWordSelectionRight(stringAfter);
-
-            debugWrite("OnRight is: " + onRight);
-        }
-        // Show Help
-        else if (ch == KEY_F(1)) {
-            showHelp();
-        }
-        // strg pos1
-        else if (ch == 544) {
-            cursorX = 0;
-            cursorY = 0;
-        }
-        //strg end
-        else if (ch == 539) {
-            if (!buffer.empty()) {
-                cursorY = static_cast<int>(buffer.size() - 1);
-                cursorX = static_cast<int>(buffer.back().size());
-            } else {
+            case KEY_F(1):
+                showHelp();
+                break;
+            case 544:
+                cursorX = 0;
                 cursorY = 0;
-                cursorX = 0;
-            }
-        }
-        //enf
-        else if (ch == 330) {
-            if (cursorY >= 0 && cursorY < (int)buffer.size()) {
-                std::string &line = buffer[cursorY];
-                int len = (int)line.size();
-                // If this key is Backspace (remove char before cursor):
-                if (cursorX > 0 && cursorX <= len) {
-                    line.erase(cursorX - 1, 1);
-                    --cursorX;
-                }
-                // If this key is Delete (remove char at cursor):
-                else if (cursorX >= 0 && cursorX < len) {
-                    line.erase(cursorX, 1);
-                    // cursorX unchanged
-                }
-            }
-        }
-        // Toggle selection
-        else if (ch == KEY_F(3)) {
-            if (!selectionActive) {
-                selectionActive = true;
-                selStartY = selEndY = cursorY;
-                selStartX = selEndX = cursorX;
-                debugWrite("Selection started at (" + std::to_string(selStartY) + "," + std::to_string(selStartX) + ")");
-            } else {
-                selectionActive = false;
-                debugWrite("Selection ended at (" + std::to_string(selEndY) + "," + std::to_string(selEndX) + ")");
-            }
-        }
-        else if (ch == 1) {
-            selectionActive = true;
-            selStartX = 0;
-            selStartY = 0;
-            selEndX = buffer[buffer.size()].size();
-            selEndY = buffer.size();
-            //debugWrite("Selection started at (" + std::to_string(selStartY) + "," + std::to_string(selStartX) + ")");
-            continue;
-        }
-        // Copy
-        else if (ch == CTRL_KEY('c') && selectionActive) {
-
-            clipboard.clear();
-            copyClipboard(std::min(selStartY, selEndY), std::max(selStartY, selEndY));
-            debugWrite("Copied to clipboard: " + clipboard);
-            selectionActive = false;
-        }
-        // Paste
-        else if (ch == CTRL_KEY('v') && !clipboard.empty()) {
-            pasteClipboard(cursorY, cursorX, buffer);
-            debugWrite("Pasted from clipboard at (" + std::to_string(cursorY) + "," + std::to_string(cursorX) + ")");
-        }
-        // Remove Line with strg + k
-        else if (ch == CTRL_KEY('k')) {
-            if (cursorY < (int)buffer.size()) {
-                buffer.erase(buffer.begin() + cursorY);
-                if (cursorY >= (int)buffer.size()) cursorY = buffer.size() - 1;
-                if (cursorY < 0) {
-                    buffer.push_back("");
+                break;
+            case 539:
+                if (!buffer.empty()) {
+                    cursorY = static_cast<int>(buffer.size() - 1);
+                    cursorX = static_cast<int>(buffer.back().size());
+                } else {
                     cursorY = 0;
+                    cursorX = 0;
                 }
-                cursorX = 0;
-                unsavedChanges = true;
-            }
-        }
-
-        // Movement - convert character positions to byte positions for navigation
-        else if (ch == KEY_UP) { if (cursorY > 0) cursorY--; }
-        else if (ch == KEY_DOWN) { if (cursorY < (int)buffer.size() - 1) cursorY++; }
-        else if (ch == KEY_LEFT) { if (cursorX > 0) cursorX--; }
-        else if (ch == KEY_RIGHT) { 
-            // Count characters in current line using UTF-8 aware method
-            int charCount = 0;
-            size_t bytePos = 0;
-            while (bytePos < buffer[cursorY].size()) {
-                unsigned char c = static_cast<unsigned char>(buffer[cursorY][bytePos]);
-                if ((c & 0x80) == 0) bytePos += 1;
-                else if ((c & 0xE0) == 0xC0) bytePos += 2;
-                else if ((c & 0xF0) == 0xE0) bytePos += 3;
-                else if ((c & 0xF8) == 0xF0) bytePos += 4;
-                else bytePos += 1;
-                charCount++;
-            }
-            if (cursorX < charCount) cursorX++; 
-        }
-        else if (ch == KEY_HOME) cursorX = 0;
-        else if (ch == KEY_END) { 
-            // Count total characters in line
-            int charCount = 0;
-            size_t bytePos = 0;
-            while (bytePos < buffer[cursorY].size()) {
-                unsigned char c = static_cast<unsigned char>(buffer[cursorY][bytePos]);
-                if ((c & 0x80) == 0) bytePos += 1;
-                else if ((c & 0xE0) == 0xC0) bytePos += 2;
-                else if ((c & 0xF0) == 0xE0) bytePos += 3;
-                else if ((c & 0xF8) == 0xF0) bytePos += 4;
-                else bytePos += 1;
-                charCount++;
-            }
-            cursorX = charCount;
-        }
-        // Enter - convert cursor character position to byte position
-        else if (ch == 10) {
-            std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
-            std::string newLine = buffer[cursorY].substr(bytePos);
-            buffer[cursorY] = buffer[cursorY].substr(0, bytePos);
-            buffer.insert(buffer.begin() + cursorY + 1, newLine);
-            cursorY++;
-            cursorX = 0;
-        }
-        // Backspace - convert cursor character position to byte position
-        else if (ch == KEY_BACKSPACE || ch == 127) {
-            if (cursorX > 0) {
-                // Get byte position before current cursor position
-                std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
-                // Get byte position of previous character
-                std::size_t prevBytePos = char_to_byte_index(buffer[cursorY], cursorX - 1);
-                // Erase the character (from previous position to current position)
-                buffer[cursorY].erase(prevBytePos, bytePos - prevBytePos);
-                cursorX--;
-            } else if (cursorY > 0) {
-                // Count characters in previous line
-                int prevLineCharCount = 0;
+                break;
+            case 330:
+                if (cursorY >= 0 && cursorY < static_cast<int>(buffer.size())) {
+                    std::string &line = buffer[cursorY];
+                    int len = static_cast<int>(line.size());
+                    if (cursorX > 0 && cursorX <= len) {
+                        line.erase(cursorX - 1, 1);
+                        --cursorX;
+                    } else if (cursorX >= 0 && cursorX < len) {
+                        line.erase(cursorX, 1);
+                    }
+                }
+                break;
+            case KEY_F(3):
+                if (!selectionActive) {
+                    selectionActive = true;
+                    selStartY = selEndY = cursorY;
+                    selStartX = selEndX = cursorX;
+                    debugWrite("Selection started at (" +
+                            std::to_string(selStartY) + "," +
+                            std::to_string(selStartX) + ")");
+                } else {
+                    selectionActive = false;
+                    debugWrite("Selection ended at (" +
+                            std::to_string(selEndY) + "," +
+                            std::to_string(selEndX) + ")");
+                }
+                break;
+            case 1:
+                selectionActive = true;
+                selStartX = 0;
+                selStartY = 0;
+                selEndX = buffer[buffer.size()].size();
+                selEndY = buffer.size();
+                continue;
+                break;
+            case CTRL_KEY('c'):
+                if (selectionActive) {
+                    clipboard.clear();
+                    copyClipboard(std::min(selStartY, selEndY),
+                                std::max(selStartY, selEndY));
+                    debugWrite("Copied to clipboard: " + clipboard);
+                    selectionActive = false;
+                }
+                break;
+            case CTRL_KEY('v'):
+                if (!clipboard.empty()) {
+                    pasteClipboard(cursorY, cursorX, buffer);
+                    debugWrite("Pasted from clipboard at (" +
+                            std::to_string(cursorY) + "," +
+                            std::to_string(cursorX) + ")");
+                }
+                break;
+            case CTRL_KEY('k'):
+                if (cursorY < static_cast<int>(buffer.size())) {
+                    buffer.erase(buffer.begin() + cursorY);
+                    if (cursorY >= static_cast<int>(buffer.size())) cursorY = buffer.size() - 1;
+                    if (cursorY < 0) {
+                        buffer.push_back("");
+                        cursorY = 0;
+                    }
+                    cursorX = 0;
+                    unsavedChanges = true;
+                }
+                break;
+            case KEY_UP:
+                if (cursorY > 0) cursorY--;
+                break;
+            case KEY_DOWN:
+                if (cursorY < static_cast<int>(buffer.size()) - 1) cursorY++;
+                break;
+            case KEY_LEFT:
+                if (cursorX > 0) cursorX--;
+                break;
+            case KEY_RIGHT: {
+                int charCount = 0;
                 size_t bytePos = 0;
-                while (bytePos < buffer[cursorY - 1].size()) {
-                    unsigned char c = static_cast<unsigned char>(buffer[cursorY - 1][bytePos]);
+                while (bytePos < buffer[cursorY].size()) {
+                    unsigned char c = static_cast<unsigned char>(buffer[cursorY][bytePos]);
                     if ((c & 0x80) == 0) bytePos += 1;
                     else if ((c & 0xE0) == 0xC0) bytePos += 2;
                     else if ((c & 0xF0) == 0xE0) bytePos += 3;
                     else if ((c & 0xF8) == 0xF0) bytePos += 4;
                     else bytePos += 1;
-                    prevLineCharCount++;
+                    charCount++;
                 }
-                cursorX = prevLineCharCount;
-                buffer[cursorY - 1] += buffer[cursorY];
-                buffer.erase(buffer.begin() + cursorY);
-                cursorY--;
+                if (cursorX < charCount) cursorX++;
+                break;
+            }
+            case KEY_HOME:
+                cursorX = 0;
+                break;
+            case KEY_END: {
+                int charCount = 0;
+                size_t bytePos = 0;
+                while (bytePos < buffer[cursorY].size()) {
+                    unsigned char c = static_cast<unsigned char>(buffer[cursorY][bytePos]);
+                    if ((c & 0x80) == 0) bytePos += 1;
+                    else if ((c & 0xE0) == 0xC0) bytePos += 2;
+                    else if ((c & 0xF0) == 0xE0) bytePos += 3;
+                    else if ((c & 0xF8) == 0xF0) bytePos += 4;
+                    else bytePos += 1;
+                    charCount++;
+                }
+                cursorX = charCount;
+                break;
+            }
+            case 10: {
+                std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
+                std::string newLine = buffer[cursorY].substr(bytePos);
+                buffer[cursorY] = buffer[cursorY].substr(0, bytePos);
+                buffer.insert(buffer.begin() + cursorY + 1, newLine);
+                cursorY++;
+                cursorX = 0;
+                break;
+            }
+            case KEY_BACKSPACE:
+            case 127: {
+                if (cursorX > 0) {
+                    std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
+                    std::size_t prevBytePos = char_to_byte_index(buffer[cursorY], cursorX - 1);
+                    buffer[cursorY].erase(prevBytePos, bytePos - prevBytePos);
+                    cursorX--;
+                } else if (cursorY > 0) {
+                    int prevLineCharCount = 0;
+                    size_t bytePos = 0;
+                    while (bytePos < buffer[cursorY - 1].size()) {
+                        unsigned char c = static_cast<unsigned char>(buffer[cursorY - 1][bytePos]);
+                        if ((c & 0x80) == 0) bytePos += 1;
+                        else if ((c & 0xE0) == 0xC0) bytePos += 2;
+                        else if ((c & 0xF0) == 0xE0) bytePos += 3;
+                        else if ((c & 0xF8) == 0xF0) bytePos += 4;
+                        else bytePos += 1;
+                        prevLineCharCount++;
+                    }
+                    cursorX = prevLineCharCount;
+                    buffer[cursorY - 1] += buffer[cursorY];
+                    buffer.erase(buffer.begin() + cursorY);
+                    cursorY--;
+                }
+                break;
+            }
+            default: {
+                if (ch >= 128 && ch <= 255) {
+                    std::string utf8_char;
+                    utf8_char += static_cast<char>(ch);
+                    int remaining_bytes = 0;
+                    unsigned char uc = static_cast<unsigned char>(ch);
+                    if ((uc & 0xE0) == 0xC0) remaining_bytes = 1;
+                    else if ((uc & 0xF0) == 0xE0) remaining_bytes = 2;
+                    else if ((uc & 0xF8) == 0xF0) remaining_bytes = 3;
+                    for (int i = 0; i < remaining_bytes; ++i) {
+                        int next_byte = getch();
+                        if (next_byte > 0) {
+                            utf8_char += static_cast<char>(next_byte);
+                        }
+                    }
+                    if (cursorX > buffer[cursorY].size()) {
+                        buffer[cursorY].resize(cursorX, ' ');
+                    }
+                    std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
+                    buffer[cursorY].insert(bytePos, utf8_char);
+                    cursorX += 1;
+                    unsavedChanges = true;
+                    break;
+                }
+                if (ch >= 32 && ch <= 126) {
+                    std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
+                    if (bytePos > buffer[cursorY].size()) {
+                        buffer[cursorY].resize(bytePos, ' ');
+                    }
+                    buffer[cursorY].insert(bytePos, 1, static_cast<char>(ch));
+                    cursorX += 1;
+                    unsavedChanges = true;
+                    break;
+                }
+                break;
             }
         }
-        // Handle UTF-8 multibyte sequences from keyboard
-        else if (ch >= 128 && ch <= 255) {
-            // This is a UTF-8 byte from keyboard input
-            debugWrite("UTF-8 byte received: " + std::to_string(ch));
-            
-            // For multibyte UTF-8, we need to read more bytes
-            std::string utf8_char;
-            utf8_char += static_cast<char>(ch);
-            
-            // Determine how many more bytes to read based on first byte
-            int remaining_bytes = 0;
-            unsigned char uc = static_cast<unsigned char>(ch);
-            if ((uc & 0xE0) == 0xC0) remaining_bytes = 1;      // 2-byte sequence
-            else if ((uc & 0xF0) == 0xE0) remaining_bytes = 2; // 3-byte sequence
-            else if ((uc & 0xF8) == 0xF0) remaining_bytes = 3; // 4-byte sequence
-            
-            // Read the remaining bytes
-            for (int i = 0; i < remaining_bytes; ++i) {
-                int next_byte = getch();
-                if (next_byte > 0) {
-                    utf8_char += static_cast<char>(next_byte);
+
+
+                // Update selection end
+                if (selectionActive) {
+                    selEndY = cursorY;
+                    selEndX = cursorX;
                 }
             }
-            
-            // Ensure the line is long enough
-            if (cursorX > buffer[cursorY].size()) {
-                buffer[cursorY].resize(cursorX, ' ');
-            }
-            
-            // Convert cursor character position to byte position for insertion
-            std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
-            
-            // Insert UTF-8 character at byte position
-            buffer[cursorY].insert(bytePos, utf8_char);
-            cursorX += 1;  // Move cursor by 1 character (not bytes)
-            unsavedChanges = true;
-        }
-        // Printable ASCII characters
-        else if (ch >= 32 && ch <= 126) {
-            // Convert cursor character position to byte position for insertion
-            std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
-            
-            // Ensure the line is long enough
-            if (bytePos > buffer[cursorY].size()) {
-                buffer[cursorY].resize(bytePos, ' '); // Fill missing spaces
-            }
-
-            // Insert character at byte position
-            buffer[cursorY].insert(bytePos, 1, static_cast<char>(ch));
-
-            cursorX += 1;  // Move cursor by 1 character
-            unsavedChanges = true;
-        }
-
-        // Update selection end
-        if (selectionActive) {
-            selEndY = cursorY;
-            selEndX = cursorX;
-        }
-    }
 
     endwin();
     return 0;
