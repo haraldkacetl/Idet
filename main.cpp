@@ -8,7 +8,7 @@
 #include <ctime>
 #include <string_view>
 #include <iostream>
-#include "headers/LlamaClient.hpp"
+//#include "headers/LlamaClient.hpp"
 #include "headers/networkLlamaApi.hpp"
 #include "headers/functions.h"
 
@@ -16,7 +16,7 @@
 const std::string version = "0.0.0";
 std::ofstream debugOut;
 
-void debug(const std::string& msg) {
+void debugWrite(const std::string& msg) {
     if (debugOut.is_open()) {
         debugOut << msg << std::endl;
         debugOut.flush();
@@ -42,11 +42,21 @@ bool modelLoaded = false;
 bool createNewFile = true;
 std::string llamaCompletionHost = "http://localhost:8080"; //URL of llamacpp
 std::string llamaCompletionNPredict = "5"; // how many tokens to generate with TAB
+const size_t DEBUG_MAX = 10000;
 
+void debugWrite(std::ofstream& out, const std::string& msg) {
+    if (!out.is_open()) return;
+
+    if (msg.size() <= DEBUG_MAX) {
+        out << msg;
+    } else {
+        out << msg.substr(0, DEBUG_MAX);
+    }
+}
 // init global llama
-LlamaClient llama([](const std::string& msg) {
-    debug(msg);
-});
+//LlamaClient llama([](const std::string& msg) {
+//    debugWrite(msg);
+//});
 
 
 
@@ -82,7 +92,7 @@ void copyClipboard(int startY , int endY){
                 clipboard += buffer[y].substr(lineStartX, lineEndX - lineStartX);
                 if (y != endY) clipboard += "\n";
             }
-            debug("copied to clipboard: " + clipboard);
+            debugWrite("copied to clipboard: " + clipboard);
 }
 
 void pasteClipboard(int& cursorY, int& cursorX, std::vector<std::string>& buffer) {
@@ -314,19 +324,19 @@ bool checkFileExistance(const std::string& filePath) {
 }
 
 void initLlama() {
-    modelLoaded = llama.load_model(modelPath);
-
-    if (!modelLoaded) {
-        debug("Failed to load Llama model. Check the path! Used path: " + modelPath);
-    } else {
-        debug("Llama model loaded successfully. Used model path: " + modelPath);
-    }
-
-    if (checkFileExistance(modelPath)) {
-        debug("Model file exists");
-    } else {
-        debug("Model file does not exist!: " + modelPath);
-    }
+    
+    //modelLoaded = llama.load_model(modelPath);
+    //if (!modelLoaded) {
+    //    debugWrite("Failed to load Llama model. Check the path! Used path: " + modelPath);
+    //} else {
+    //    debugWrite("Llama model loaded successfully. Used model path: " + modelPath);
+    //}
+//
+    //if (checkFileExistance(modelPath)) {
+    //    debugWrite("Model file exists");
+    //} else {
+    //    debugWrite("Model file does not exist!: " + modelPath);
+    //}
 }
 void createNewFileFunc(const std::string &filename) {
     std::ofstream out(filename, std::ios::out | std::ios::trunc);
@@ -382,7 +392,7 @@ int main(int argc, char* argv[]) {
                 llamaCompletionHost = "http://";
                 llamaCompletionHost.append(argv[i + 1]);
             }
-            debug("using llamaCompletionHost: " + llamaCompletionHost);
+            debugWrite("using llamaCompletionHost: " + llamaCompletionHost);
         }
         if (std::string(argv[i]) == "-n" || std::string(argv[i]) == "--npredict") {
             llamaCompletionNPredict = argv[i];
@@ -398,12 +408,12 @@ int main(int argc, char* argv[]) {
     }
     }
     //LlamaClient llama([](const std::string& msg) {
-    //debug(msg);
+    //debugWrite(msg);
     //});
 
     
 
-    debug("Editor started");
+    debugWrite("Editor started");
     if (checkFileExistance(argv[1])){
         loadFile(argv[1]);
     }
@@ -443,7 +453,7 @@ int main(int argc, char* argv[]) {
         draw(cursorY, cursorX, rowOffset, argv[1], lineNumberScheme, contentScheme, selectionActive, unsavedChanges, colOffset);
 
         ch = getch();
-        debug("Key pressed: " + std::to_string(ch));
+        debugWrite("Key pressed: " + std::to_string(ch));
 
         // Quit
         if (ch == CTRL_KEY('q')) break;
@@ -456,7 +466,7 @@ int main(int argc, char* argv[]) {
         }
         // Tab completion
     else if (ch == 9) { // Tab Key
-        debug("Tab pressed - Triggering AI Completion");
+        debugWrite("Tab pressed - Triggering AI Completion");
         std::vector<std::string> vectorBeforetxt;
         vectorBeforetxt.reserve(static_cast<size_t>(cursorY) + 1); // avoid reallocs
 
@@ -479,12 +489,12 @@ int main(int argc, char* argv[]) {
             if (i) StrVecTxt.push_back(',');
             StrVecTxt += vectorBeforetxt[i];
         }
-        debug("vector: " + StrVecTxt);
+        debugWrite("vector: " + StrVecTxt);
         std::string promptText = getStingFromVec(vectorBeforetxt);
-        debug("promptText: " + promptText);
+        debugWrite("promptText: " + promptText);
         std::string llamaOutput = llama_completion_content(promptText, (llamaCompletionHost + "/completion"), llamaCompletionNPredict,
-                                   [](const std::string& msg){ debug(msg); });
-        debug("got output: " + llamaOutput);
+                                   [](const std::string& msg){ debugWrite(msg); });
+        debugWrite("got output: " + llamaOutput);
         for (std::size_t i = 0; i < llamaOutput.size(); ++i) {
             char charLlamaOutput = llamaOutput[i];
             if (charLlamaOutput == '\n') {
@@ -524,14 +534,14 @@ int main(int argc, char* argv[]) {
         // shift + arrow key to select
         else if (ch == 402)
         {
-            debug("shift + arrow right");
+            debugWrite("shift + arrow right");
 
             std::string stringAfter = subtractStringLeft(buffer[cursorY], cursorX);
-            debug("cursorY pos: " + std::to_string(cursorY));
-            debug("current line content:" + buffer[cursorY]);
+            debugWrite("cursorY pos: " + std::to_string(cursorY));
+            debugWrite("current line content:" + buffer[cursorY]);
             std::string onRight = getWordSelectionRight(stringAfter);
 
-            debug("OnRight is: " + onRight);
+            debugWrite("OnRight is: " + onRight);
         }
         
         // Show Help
@@ -576,10 +586,10 @@ int main(int argc, char* argv[]) {
                 selectionActive = true;
                 selStartY = selEndY = cursorY;
                 selStartX = selEndX = cursorX;
-                debug("Selection started at (" + std::to_string(selStartY) + "," + std::to_string(selStartX) + ")");
+                debugWrite("Selection started at (" + std::to_string(selStartY) + "," + std::to_string(selStartX) + ")");
             } else {
                 selectionActive = false;
-                debug("Selection ended at (" + std::to_string(selEndY) + "," + std::to_string(selEndX) + ")");
+                debugWrite("Selection ended at (" + std::to_string(selEndY) + "," + std::to_string(selEndX) + ")");
             }
         }
         else if (ch == 1) {
@@ -588,7 +598,7 @@ int main(int argc, char* argv[]) {
             selStartY = 0;
             selEndX = buffer[buffer.size()].size();
             selEndY = buffer.size();
-            //debug("Selection started at (" + std::to_string(selStartY) + "," + std::to_string(selStartX) + ")");
+            //debugWrite("Selection started at (" + std::to_string(selStartY) + "," + std::to_string(selStartX) + ")");
             continue;
         }
         // Copy
@@ -596,13 +606,13 @@ int main(int argc, char* argv[]) {
 
             clipboard.clear();
             copyClipboard(std::min(selStartY, selEndY), std::max(selStartY, selEndY));
-            debug("Copied to clipboard: " + clipboard);
+            debugWrite("Copied to clipboard: " + clipboard);
             selectionActive = false;
         }
         // Paste
         else if (ch == CTRL_KEY('v') && !clipboard.empty()) {
             pasteClipboard(cursorY, cursorX, buffer);
-            debug("Pasted from clipboard at (" + std::to_string(cursorY) + "," + std::to_string(cursorX) + ")");
+            debugWrite("Pasted from clipboard at (" + std::to_string(cursorY) + "," + std::to_string(cursorX) + ")");
         }
         // Remove Line with strg + k
         else if (ch == CTRL_KEY('k')) {
@@ -620,7 +630,7 @@ int main(int argc, char* argv[]) {
 
         // Movement
         else if (ch == KEY_UP) { if (cursorY > 0) cursorY--; if (cursorX > buffer[cursorY].size()){cursorX = buffer[cursorY].size();};}
-        else if (ch == KEY_DOWN) { if (cursorY < (int)buffer.size() - 1) cursorY++; if (cursorX > buffer[cursorY].size()) { debug("cursor smaller then bufferX"); cursorX = buffer[cursorY].size();};}
+        else if (ch == KEY_DOWN) { if (cursorY < (int)buffer.size() - 1) cursorY++; if (cursorX > buffer[cursorY].size()) { debugWrite("cursor smaller then bufferX"); cursorX = buffer[cursorY].size();};}
         else if (ch == KEY_LEFT) { if (cursorX > 0) cursorX--; }
         else if (ch == KEY_RIGHT) { if (cursorX < (int)buffer[cursorY].size()) cursorX++; }
         else if (ch == KEY_HOME) cursorX = 0;
