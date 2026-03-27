@@ -37,6 +37,7 @@ int contentScheme = 3;    // 3 or 4
 bool unsavedChanges = false;
 std::string modelPath = "/var/models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf";
 bool llamaInit = false;
+std::string authToken = "";
 bool modelLoaded = false;
 bool createNewFile = true;
 std::string llamaCompletionHost = "http://localhost:8080"; //URL of llamacpp
@@ -359,6 +360,11 @@ int main(int argc, char* argv[]) {
         if (std::string(argv[i]) == "-m" || std::string(argv[i]) == "--model") {
             if (argv[i + 1]){
                 modelPath = argv[i + 1];
+            }
+        }
+        if (std::string(argv[i]) == "-a" || std::string(argv[i]) == "--auth") {
+            if (argv[i + 1]){
+                authToken = argv[i + 1]; 
             }
         }
         if (std::string(argv[i]) == "-h" || std::string(argv[i]) == "--host") {

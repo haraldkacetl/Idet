@@ -16,16 +16,20 @@ static size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* use
 std::string llama_completion(const std::string& prompt,
                              std::string curlOptUrl = "http://localhost:8080/completion",
                              std::string nPredict = "5",
-                             LogFn logger = nullptr) {
+                             LogFn logger = nullptr,
+                            std::string authToken = "") {
     CURL* curl = curl_easy_init();
     std::string response;
     if (!curl) {
         if (logger) logger("curl_easy_init() failed");
         return "";
     }
-
+    
     std::ostringstream ss;
-    ss << R"({"prompt": ")" << prompt << R"(", "n_predict": )" << nPredict << R"(, "temperature": 0.7})";
+    ss << R"({"prompt": ")" << prompt << R"(", "n_predict": )" << nPredict << R"(, "temperature": 0.7 })";
+    if (authToken != ""){
+        ss << R"({"prompt": ")" << prompt << R"(", "n_predict": )" << nPredict << R"(, "temperature": 0.7 , "Authorization": )"<< authToken << R"(})";
+    }
     std::string json = ss.str();
     struct curl_slist* headers = NULL;
     headers = curl_slist_append(headers, "Content-Type: application/json");
