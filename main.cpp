@@ -40,6 +40,7 @@ bool llamaInit = false;
 std::string authToken = "";
 bool modelLoaded = false;
 bool createNewFile = true;
+std::string configPath = "~/.config/idet/idet.cfg";
 std::string llamaCompletionHost = "http://localhost:8080"; //URL of llamacpp
 std::string llamaCompletionNPredict = "5"; // how many tokens to generate with TAB
 const size_t DEBUG_MAX = 10000;
@@ -217,8 +218,6 @@ if (cursorX < 0) cursorX = 0;
 int lineLen = (cursorY >= 0 && cursorY < (int)buffer.size()) ? (int)buffer[cursorY].size() : 0;
 if (cursorX > lineLen) cursorX = lineLen;
 
-// --- HORIZONTAL SCROLLING: update colOffset to ensure cursor visible ---
-// colOffset is assumed to be a persistent variable (global or member)
 if (cursorX < colOffset) {
     colOffset = cursorX;
 } else if (cursorX >= colOffset + visibleWidth) {
@@ -226,8 +225,6 @@ if (cursorX < colOffset) {
 }
 if (colOffset < 0) colOffset = 0;
 
-// Optionally clamp colOffset so we don't scroll past end of longest visible content:
-// Find max printable width for visible lines to avoid huge colOffset if lines are short.
 int maxLineLen = 0;
 for (int i = rowOffset; i < (int)buffer.size() && i < rowOffset + maxRows; ++i)
     if ((int)buffer[i].size() > maxLineLen) maxLineLen = (int)buffer[i].size();
@@ -407,6 +404,14 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "Failed to open debug pipe: %s\n", debugTTY.c_str());
     }
     }
+    if (checkFileExistance(configPath) == true){
+            ConfigLoader config(configPath);
+    }
+    else {
+        debugWrite("No config file found");
+    }
+
+
     //LlamaClient llama([](const std::string& msg) {
     //debugWrite(msg);
     //});
