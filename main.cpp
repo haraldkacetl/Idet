@@ -588,8 +588,8 @@ int main(int argc, char* argv[]) {
             selStartY = 0;
             selEndX = buffer[buffer.size()].size();
             selEndY = buffer.size();
-            debug("Selection started at (" + std::to_string(selStartY) + "," + std::to_string(selStartX) + ")");
-            
+            //debug("Selection started at (" + std::to_string(selStartY) + "," + std::to_string(selStartX) + ")");
+            continue;
         }
         // Copy
         else if (ch == CTRL_KEY('c') && selectionActive) {
