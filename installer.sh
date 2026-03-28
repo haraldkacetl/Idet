@@ -21,7 +21,11 @@ git pull
 echo "Compiling main.cpp to editor..."
     
 g++ main.cpp  -lncursesw -lcurl -o idet
-    
+  
+
+#mkdir -p ~/.config/idet
+#echo "{}" > ~/.config/idet/config.json
+
 chmod a+x idet
 cp -f idet /usr/local/bin/
 echo "Installation complete. Run 'idet' or './idet' to start the editor."

@@ -48,7 +48,7 @@ bool llamaInit = false;
 std::string authToken = "";
 bool modelLoaded = false;
 bool createNewFile = true;
-std::string configPath = "~/.config/idet/idet.cfg";
+std::string configPath = "~/.config/idet/config.json";
 std::string llamaCompletionHost = "http://localhost:8080"; //URL of llamacpp
 std::string llamaCompletionNPredict = "5"; // how many tokens to generate with TAB
 int lastEditTime = 0;
@@ -454,6 +454,34 @@ std::size_t char_to_byte_index(const std::string &s, std::size_t char_idx) {
 
 // Removed broken remakeBufferUtf8 function - not needed
 // The buffer already stores UTF-8 strings correctly
+
+void loadConfig(std::string configPath) {
+    std::ifstream configFile(configPath);
+    if (!configFile) {
+        debugWrite("No config file found at " + configPath + ", using defaults.");
+        return;
+    }
+
+    try {
+        nlohmann::json configJson;
+        configFile >> configJson;
+
+        if (configJson.contains("AiProvider"))
+            AiProvider = configJson["AiProvider"].get<std::string>();
+        if (configJson.contains("modelPath"))
+            modelPath = configJson["modelPath"].get<std::string>();
+        if (configJson.contains("authToken"))
+            authToken = configJson["authToken"].get<std::string>();
+        if (configJson.contains("llamaCompletionHost"))
+            llamaCompletionHost = configJson["llamaCompletionHost"].get<std::string>();
+        if (configJson.contains("llamaCompletionNPredict"))
+            llamaCompletionNPredict = configJson["llamaCompletionNPredict"].get<std::string>();
+        
+        debugWrite("Config loaded from " + configPath);
+    } catch (const std::exception& e) {
+        debugWrite(std::string("Failed to parse config file: ") + e.what());
+    }
+}
 
 std::vector<std::string> generateInlineBuffer(const std::string& inputBufferString) {
     std::vector<std::string> outVector;
