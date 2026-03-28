@@ -352,7 +352,7 @@ for (int i = 0; i < maxRows && (rowOffset + i) < (int)buffer.size(); ++i) {
     if (fileLine >= (int)buffer.size()) continue;
     std::string& line = buffer[fileLine];
 
-    // 🔹 Convert UTF-8 → wide string using safe conversion
+    // Convert UTF-8 → wide string using safe conversion
     std::wstring wline = utf8_to_wstring(line);
 
     int startX = colOffset;
@@ -377,7 +377,7 @@ for (int i = 0; i < maxRows && (rowOffset + i) < (int)buffer.size(); ++i) {
         attron(COLOR_PAIR(contentScheme));
         if (inSelection) attron(A_REVERSE);
 
-        // 🔹 Print ONE wide character
+        // Print ONE wide character
         mvaddnwstr(i + 1, screenX, &wline[x], 1);
 
         if (inSelection) attroff(A_REVERSE);
@@ -511,7 +511,10 @@ int main(int argc, char* argv[]) {
     setlocale(LC_ALL, "");
     std::locale::global(std::locale(""));
     
-    if (argc <= 1) return 1;
+    if (argc <= 1){
+        std::cerr << "No file or parameter given!\n";
+        return 1;
+    }
     std::string_view s{argv[1]};
     if (s.size() && s[0] == '-') {
         std::cerr << "No file given! Use arg1 as filename not: " << s << '\n';
