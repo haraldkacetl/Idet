@@ -59,6 +59,7 @@ int inlineSuggestionNPredict = 5;
 bool allowInlineSuggestion = true;
 bool autoSuggestionTriggered = false;
 const int AUTO_SUGGESTION_DELAY = 3;
+std::string ollamaModel = "gpt-oss:20b";
 std::string AiProvider = "llamacpp";
 std::string filename;
 
@@ -476,7 +477,7 @@ void loadConfig(std::string configPath) {
             llamaCompletionHost = configJson["llamaCompletionHost"].get<std::string>();
         if (configJson.contains("llamaCompletionNPredict"))
             llamaCompletionNPredict = configJson["llamaCompletionNPredict"].get<std::string>();
-        
+
         debugWrite("Config loaded from " + configPath);
     } catch (const std::exception& e) {
         debugWrite(std::string("Failed to parse config file: ") + e.what());
@@ -525,7 +526,7 @@ void getInlineSuggestion(int cursorX, int cursorY){
         std::string promptText = getStingFromVec(vectorBeforetxt);
         debugWrite("promptText: " + promptText);
         std::string llamaOutput = AiCompletion(promptText, (llamaCompletionHost), std::to_string(inlineSuggestionNPredict),
-                                   [](const std::string& msg){ debugWrite(msg); }, AiProvider);
+                                   [](const std::string& msg){ debugWrite(msg); }, AiProvider, ollamaModel);
         debugWrite("LlamaOutput is: " + llamaOutput);
         // Store inline buffer and set flag to display on next draw
         inlineBuffer = generateInlineBuffer(llamaOutput);
@@ -570,6 +571,11 @@ int main(int argc, char* argv[]) {
         if (std::string(argv[i]) == "-a" || std::string(argv[i]) == "--auth") {
             if (argv[i + 1]){
                 authToken = argv[i + 1]; 
+            }
+        }
+        if (std::string(argv[i]) == "--ollamaModel") {
+            if (argv[i + 1]){
+                ollamaModel = argv[i+1];
             }
         }
         if (i + 1 < argc &&
@@ -724,7 +730,7 @@ int main(int argc, char* argv[]) {
                     std::string llamaOutput = AiCompletion(promptText,
                                             (llamaCompletionHost),
                                             llamaCompletionNPredict,
-                                            [](const std::string& msg){ debugWrite(msg); }, AiProvider);
+                                            [](const std::string& msg){ debugWrite(msg); }, AiProvider, ollamaModel);
                     debugWrite("got output: " + llamaOutput);
                     for (size_t i = 0; i < llamaOutput.size(); ++i) {
                         char charLlamaOutput = llamaOutput[i];

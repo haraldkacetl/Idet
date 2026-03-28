@@ -4,6 +4,7 @@
 #include <functional>
 #include <sstream>
 #include <nlohmann/json.hpp>
+#include <regex>
 using LogFn = std::function<void(const std::string&)>;
 // ------------------------------------------------------------------
 // libcurl helpers
@@ -86,6 +87,7 @@ std::string llama_completion_content(const std::string& prompt,
 // ------------------------------------------------------------------
 // Ollama helpers (new)
 // ------------------------------------------------------------------
+
 std::string ollama_completion(const std::string& prompt,
                               const std::string& url = "http://localhost:11434/api/generate",
                               const std::string& nPredict = "5",
@@ -98,13 +100,19 @@ std::string ollama_completion(const std::string& prompt,
     }
 
     nlohmann::json payload;
-    payload["model"]       = model;
-    payload["prompt"]      = prompt;
-    payload["num_predict"] = std::stoi(nPredict);      // Ollama uses "num_predict"
-    payload["temperature"] = 0.7;
-    payload["stream"]      = false;                     // Don't stream, get full response
+    payload["model"]  = model;
+    payload["prompt"] = prompt;
+    payload["stream"] = false;
+    payload["think"] = false;
+    // Put generation params inside "options"
+    nlohmann::json options;
+    options["num_predict"] = std::stoi(nPredict);
+    options["temperature"] = 0.0;
+
+    payload["options"] = options;
+
     std::string json = payload.dump();
-    
+
     if (logger) logger("Ollama payload: " + json);
 
     struct curl_slist* headers = nullptr;
@@ -113,10 +121,11 @@ std::string ollama_completion(const std::string& prompt,
     if (logger) logger("curl URL: " + url);
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_POST, 1L);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 120L);     // 2-minute timeout
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 120L);
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json.c_str());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+
     std::string response;
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
 
@@ -147,6 +156,7 @@ std::string ollama_completion_content(const std::string& prompt,
     }
     try {
         auto j = nlohmann::json::parse(raw);
+        logger("Recived ollama output:" + raw);
         /* Ollama’s `/api/generate` returns a very simple structure:
          *   { "response": "...", "details": {...} }
          * so we just pull the “response” field.
@@ -159,14 +169,50 @@ std::string ollama_completion_content(const std::string& prompt,
     return "";
 }
 
-// ------------------------------------------------------------------
-// High‑level dispatcher
-// ------------------------------------------------------------------
+static std::string toLowerCopy(const std::string &s) {
+    std::string t = s;
+    std::transform(t.begin(), t.end(), t.begin(), [](unsigned char c){ return std::tolower(c); });
+    return t;
+}
+
+std::string getIpAddressOfString(const std::string& IpString, LogFn logger = nullptr) {
+    auto log = [&](const std::string &msg){
+        if (logger) logger(msg);
+    };
+
+    // 1) Try IPv4
+    static const std::regex ipRegex(
+        R"((?:(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d))"
+    );
+    std::smatch match;
+    if (std::regex_search(IpString, match, ipRegex)) {
+        log("getIpAddressOfString: Ip-Address found: " + match.str(0));
+        return match.str(0);
+    }
+    static const std::regex ipv6LoopbackRegex(R"((?:\[(::1)\]|(::1))(?:[:\s]|$))");
+    if (std::regex_search(IpString, match, ipv6LoopbackRegex)) {
+        log("getIpAddressOfString: IPv6 loopback found, returning 127.0.0.1");
+        return "127.0.0.1";
+    }
+
+    std::string lower = toLowerCopy(IpString);
+
+    static const std::regex localhostRegex(R"((?:^|[^a-z0-9\-])localhost(?:[:/\s]|$))", std::regex_constants::icase);
+    if (std::regex_search(lower, match, localhostRegex)) {
+        log("getIpAddressOfString: 'localhost' found, returning 127.0.0.1");
+        return "127.0.0.1";
+    }
+
+    log("getIpAddressOfString: no Ip-Address found");
+    return std::string();
+}
+
+
 std::string AiCompletion(const std::string& prompt,
                          std::string curlOptUrl = "http://localhost:8080/v1/completion",
                          std::string nPredict     = "5",
                          LogFn logger = nullptr,
-                         std::string AiHost = "llamacpp") {
+                         std::string AiHost = "llamacpp", std::string ollamaModel = "") {
     if (!logger) logger = [](const std::string&) {};  // no-op if null
     logger("Using AiProvider: " + AiHost);
     
@@ -180,36 +226,21 @@ std::string AiCompletion(const std::string& prompt,
         return llama_completion_content(prompt, llamaUrl, nPredict, logger);
     } else if (AiHost == "ollama") {
         logger("inside Ollama call");
-        std::string ollamaUrl = curlOptUrl;
-        // Detect if the user passed the default Llama URL (localhost:8080)
-        bool isDefaultLlama = (ollamaUrl == "http://localhost:8080/v1/completion" ||
-                               ollamaUrl == "http://localhost:8080/completion" ||
-                               (ollamaUrl.find("localhost:8080") != std::string::npos &&
-                                ollamaUrl.find("/completion") != std::string::npos));
-        if (isDefaultLlama) {
-            // Replace with the Ollama endpoint
-            ollamaUrl = "http://localhost:11434/api/generate";
-        } else {
-            // Strip any /completion suffix that might have been passed by mistake
-            size_t pos = ollamaUrl.find("/completion");
-            if (pos != std::string::npos) {
-                ollamaUrl = ollamaUrl.substr(0, pos);
-            }
-            // Ensure the path ends with /api/generate
-            if (ollamaUrl.find("/api/generate") == std::string::npos) {
-                // If the URL already ends with a slash, avoid double slash
-                if (ollamaUrl.back() == '/') {
-                    ollamaUrl += "api/generate";
-                } else {
-                    ollamaUrl += "/api/generate";
-                }
-            }
+        if (ollamaModel == ""){
+            logger("Ollama: No model given");
+            return "";
+        }else{
+            
+            std::string ipAddress = getIpAddressOfString(curlOptUrl, logger);
+            curlOptUrl = ("http://" + ipAddress + ":11434/api/generate");
+            logger("Constructed new CurlOptUrl: " + curlOptUrl);
+            ollama_completion_content(prompt,curlOptUrl,nPredict,logger,ollamaModel);
         }
-        logger("Final Ollama URL: " + ollamaUrl);
-        return ollama_completion_content(prompt, ollamaUrl, nPredict, logger);
+
     } else {
         if (logger) logger("Unsupported AI provider: " + AiHost);
         return "";
     }
+    return "";
 }
 
