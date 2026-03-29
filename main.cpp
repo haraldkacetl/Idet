@@ -68,12 +68,6 @@ bool allowInlineSuggestion = true;
 bool autoSuggestionTriggered = false;
 
 
-
-
-
-
-
-
 void displayInlineSuggestion(const std::vector<std::string>& inlineBuffer,
                              int inlineBufferPosX, int inlineBufferPosY,
                              int cursorXFunc, int cursorYFunc, int rowOffset, int colOffset, int lineNumberWidth) {
@@ -466,17 +460,144 @@ std::size_t char_to_byte_index(const std::string &s, std::size_t char_idx) {
     return bytes;
 }
 
-void drawAISettings(){
+
+void drawAISettings(std::string authToken, std::string llamaCompletionHost, std::string llamaCompletionNPredict, std::string ollamaModel , std::string AiProvider, int inlineSuggestionNPredict, int AUTO_SUGGESTION_DELAY){
+    erase();  // clear the screen
+
+    // Turn on color
+    attron(COLOR_PAIR(lineNumberScheme));
+
+    // Print AI settings
+    mvprintw(1, 0, "AI Provider: %s", AiProvider.c_str());
+    mvprintw(2, 0, "Auth Token: %s", authToken.empty() ? "(none)" : "(set)");
+    mvprintw(3, 0, "Llama Host: %s", llamaCompletionHost.c_str());
+    mvprintw(4, 0, "Llama n_predict: %s", llamaCompletionNPredict.c_str());
+    mvprintw(5, 0, "Ollama Model: %s", ollamaModel.c_str());
+    mvprintw(6, 0, "Inline Suggestion Tokens: %d", inlineSuggestionNPredict);
+    mvprintw(7, 0, "Auto Suggestion Delay: %d seconds", AUTO_SUGGESTION_DELAY);
+
+    // Turn off color
+    attroff(COLOR_PAIR(lineNumberScheme));
+
+    // Refresh to show changes
+    refresh();
 
 }
 
-void displayAISettings(){
-    while (true)
-    {
-        drawAISettings();
-        int settingsCh = getch();
-    }
+void displayAISettings(int cursorY, int cursorX, int& rowOffset, const std::string& filename,int lineNumberScheme, int contentScheme, bool selectionActive,bool unsavedChanges, int& colOffset, std::string authToken, std::string llamaCompletionHost, std::string llamaCompletionNPredict, std::string ollamaModel , std::string AiProvider, int inlineSuggestionNPredict, int AUTO_SUGGESTION_DELAY){
+    int selectedSetting = 0;
+    const int NUM_SETTINGS = 7;
+    bool editingMode = false;
+    std::string editBuffer = "";
     
+    while (true) {
+        erase();
+        attron(COLOR_PAIR(lineNumberScheme));
+        
+        // Print settings with highlighting
+        mvprintw(1, 0, "%s AI Provider: %s", selectedSetting == 0 ? ">" : " ", ::AiProvider.c_str());
+        mvprintw(2, 0, "%s Auth Token: %s", selectedSetting == 1 ? ">" : " ", ::authToken.empty() ? "(none)" : "(set)");
+        mvprintw(3, 0, "%s Llama Host: %s", selectedSetting == 2 ? ">" : " ", ::llamaCompletionHost.c_str());
+        mvprintw(4, 0, "%s Llama n_predict: %s", selectedSetting == 3 ? ">" : " ", ::llamaCompletionNPredict.c_str());
+        mvprintw(5, 0, "%s Ollama Model: %s", selectedSetting == 4 ? ">" : " ", ::ollamaModel.c_str());
+        mvprintw(6, 0, "%s Inline Suggestion Tokens: %d", selectedSetting == 5 ? ">" : " ", ::inlineSuggestionNPredict);
+        mvprintw(7, 0, "%s Auto Suggestion Delay: %d seconds", selectedSetting == 6 ? ">" : " ", ::AUTO_SUGGESTION_DELAY);
+        
+        if (editingMode) {
+            mvprintw(9, 0, "Editing: ");
+            attron(A_UNDERLINE);
+            mvprintw(9, 9, "%s", editBuffer.c_str());
+            attroff(A_UNDERLINE);
+            mvprintw(10, 0, "[Enter] Save  [Esc] Cancel");
+        } else {
+            mvprintw(9, 0, "[Arrow Keys] Navigate  [Enter] Edit  [Esc] Exit");
+        }
+        
+        attroff(COLOR_PAIR(lineNumberScheme));
+        refresh();
+        
+        int settingsCh = getch();
+        
+        if (editingMode) {
+            // In editing mode
+            if (settingsCh == 10 || settingsCh == 13) { // Enter
+                // Save the new value based on selected setting
+                switch (selectedSetting) {
+                    case 0: // AI Provider
+                        if (!editBuffer.empty()) ::AiProvider = editBuffer;
+                        break;
+                    case 1: // Auth Token
+                        ::authToken = editBuffer;
+                        break;
+                    case 2: // Llama Host
+                        if (!editBuffer.empty()) ::llamaCompletionHost = editBuffer;
+                        break;
+                    case 3: // Llama n_predict
+                        if (!editBuffer.empty()) ::llamaCompletionNPredict = editBuffer;
+                        break;
+                    case 4: // Ollama Model
+                        if (!editBuffer.empty()) ::ollamaModel = editBuffer;
+                        break;
+                    case 5: // Inline Suggestion Tokens
+                        try {
+                            ::inlineSuggestionNPredict = std::stoi(editBuffer);
+                        } catch (...) {}
+                        break;
+                    case 6: // Auto Suggestion Delay
+                        try {
+                            ::AUTO_SUGGESTION_DELAY = std::stoi(editBuffer);
+                        } catch (...) {}
+                        break;
+                }
+                editingMode = false;
+                editBuffer = "";
+            } else if (settingsCh == 27) { // Esc
+                editingMode = false;
+                editBuffer = "";
+            } else if (settingsCh == 127 || settingsCh == KEY_BACKSPACE) { // Backspace
+                if (!editBuffer.empty()) {
+                    editBuffer.pop_back();
+                }
+            } else if (settingsCh >= 32 && settingsCh <= 126) { // Printable ASCII
+                editBuffer += static_cast<char>(settingsCh);
+            }
+        } else {
+            // Navigation mode
+            if (settingsCh == KEY_UP) {
+                selectedSetting = (selectedSetting - 1 + NUM_SETTINGS) % NUM_SETTINGS;
+            } else if (settingsCh == KEY_DOWN) {
+                selectedSetting = (selectedSetting + 1) % NUM_SETTINGS;
+            } else if (settingsCh == 10 || settingsCh == 13) { // Enter
+                editingMode = true;
+                // Load current value into edit buffer
+                switch (selectedSetting) {
+                    case 0:
+                        editBuffer = ::AiProvider;
+                        break;
+                    case 1:
+                        editBuffer = ::authToken;
+                        break;
+                    case 2:
+                        editBuffer = ::llamaCompletionHost;
+                        break;
+                    case 3:
+                        editBuffer = ::llamaCompletionNPredict;
+                        break;
+                    case 4:
+                        editBuffer = ::ollamaModel;
+                        break;
+                    case 5:
+                        editBuffer = std::to_string(::inlineSuggestionNPredict);
+                        break;
+                    case 6:
+                        editBuffer = std::to_string(::AUTO_SUGGESTION_DELAY);
+                        break;
+                }
+            } else if (settingsCh == 27) { // Esc
+                break; // Exit settings menu
+            }
+        }
+    }
 }
 
 void loadConfig(std::string configPath) {
@@ -846,10 +967,10 @@ int main(int argc, char* argv[]) {
                 cursorY = 0;
                 break;
             case KEY_F(7):
-
-                getInlineSuggestion(cursorX, cursorY); 
-                inlineSuggestionExists = true;
-                break;
+                displayAISettings(cursorY, cursorX, rowOffset, argv[1], lineNumberScheme, contentScheme, selectionActive, unsavedChanges, colOffset, authToken, llamaCompletionHost, llamaCompletionNPredict, ollamaModel , AiProvider, inlineSuggestionNPredict, AUTO_SUGGESTION_DELAY);
+                //getInlineSuggestion(cursorX, cursorY); 
+                //inlineSuggestionExists = true;
+                //break;
             case 539:
                 if (!buffer.empty()) {
                     cursorY = static_cast<int>(buffer.size() - 1);
