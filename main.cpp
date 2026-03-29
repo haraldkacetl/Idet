@@ -50,6 +50,9 @@ std::string configPath = "~/.config/idet/config.json";
 int lastEditTime = 0;
 const size_t DEBUG_MAX = 10000;
 std::string filename;
+std::vector<cacheAction> cacheActionBuffer; 
+int maxCacheNum = 100;
+int cacheIndex = -1; // tracks current position in undo/redo history (-1 means at latest state)
 
 // AI Vars
 std::string modelPath = "/var/models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf";
@@ -460,6 +463,19 @@ std::size_t char_to_byte_index(const std::string &s, std::size_t char_idx) {
     return bytes;
 }
 
+void appendCacheActionBuffer(const std::string& action, const std::string& bufferDifference, int keyPressed, int cursorX, int cursorY , std::vector<cacheAction>& cacheActionBuffer, int maxCacheNum) {
+    // If not at the latest state, remove all "future" actions (redo history gets cleared)
+    if (cacheIndex >= 0 && cacheIndex < (int)cacheActionBuffer.size() - 1) {
+        cacheActionBuffer.erase(cacheActionBuffer.begin() + cacheIndex + 1, cacheActionBuffer.end());
+    }
+    
+    if (cacheActionBuffer.size() >= maxCacheNum) {
+        cacheActionBuffer.erase(cacheActionBuffer.begin()); // remove oldest
+        cacheIndex = std::max(-1, cacheIndex - 1); // adjust index if we removed the first element
+    }
+    cacheActionBuffer.push_back({action, bufferDifference, keyPressed, cursorX, cursorY});
+    cacheIndex = cacheActionBuffer.size() - 1; // always move to latest state after new action
+}
 
 void drawAISettings(std::string authToken, std::string llamaCompletionHost, std::string llamaCompletionNPredict, std::string ollamaModel , std::string AiProvider, int inlineSuggestionNPredict, int AUTO_SUGGESTION_DELAY){
     erase();  // clear the screen
@@ -640,6 +656,73 @@ std::vector<std::string> generateInlineBuffer(const std::string& inputBufferStri
         }
     }
     return outVector;
+}
+
+void restoreBufferFromString(const std::string& bufferString) {
+    buffer.clear();
+    if (bufferString.empty()) {
+        buffer.push_back("");
+        return;
+    }
+    
+    std::string line;
+    size_t start = 0, end = 0;
+    while (start < bufferString.size()) {
+        end = bufferString.find('\n', start);
+        if (end == std::string::npos) {
+            end = bufferString.size();
+        }
+        line = bufferString.substr(start, end - start);
+        buffer.push_back(line);
+        start = end + 1;
+    }
+    
+    if (buffer.empty()) {
+        buffer.push_back("");
+    }
+}
+
+void undo(int& cursorX, int& cursorY) {
+    if (cacheIndex < 0) {
+        debugWrite("Nothing to undo");
+        return;
+    }
+    
+    cacheIndex--;
+    if (cacheIndex >= 0) {
+        const cacheAction& action = cacheActionBuffer[cacheIndex];
+        restoreBufferFromString(action.bufferDiffrence);
+        cursorX = action.cursorX;
+        cursorY = action.cursorY;
+        unsavedChanges = true;
+        debugWrite("Undo: restored to cache index " + std::to_string(cacheIndex));
+    } else {
+        // Before any actions - restore to empty buffer
+        //buffer.clear();
+        //buffer.push_back("");
+        //cursorX = 0;
+        //cursorY = 0;
+        //unsavedChanges = true;
+        //debugWrite("Undo: restored to initial state");
+        //cacheIndex = -1;
+    }
+}
+
+void redo(int& cursorX, int& cursorY) {
+    if (cacheIndex >= (int)cacheActionBuffer.size() - 1) {
+        debugWrite("Nothing to redo");
+        return;
+    }
+    
+    cacheIndex++;
+    if (cacheIndex < (int)cacheActionBuffer.size()) {
+        const cacheAction& action = cacheActionBuffer[cacheIndex];
+        restoreBufferFromString(action.bufferDiffrence);
+        cursorX = action.cursorX;
+        cursorY = action.cursorY;
+        unsavedChanges = true;
+        debugWrite("Redo: restored to cache index " + std::to_string(cacheIndex));
+    }
 }
 
 void getInlineSuggestion(int cursorX, int cursorY){
@@ -844,12 +927,22 @@ int main(int argc, char* argv[]) {
         }
         int oldXPos = cursorX;
         int oldYPos = cursorY;
+        
+        // Store state before action for undo
+        std::string stateBeforeAction = joinVecLines(buffer);
+        
         switch (ch) {
             case CTRL_KEY('q'):
                 endwin();
                 exit(0);
             case CTRL_KEY('s'):
                 saveFile(argv[1]);
+                break;
+            case CTRL_KEY('z'):
+                undo(cursorX, cursorY);
+                break;
+            case CTRL_KEY('y'):
+                redo(cursorX, cursorY);
                 break;
             case KEY_F(2):
                 lineNumberScheme = (lineNumberScheme == 1) ? 2 : 1;
@@ -1192,6 +1285,15 @@ int main(int argc, char* argv[]) {
             }
         }
 
+        // Store action in cache if buffer changed or position changed
+        std::string stateAfterAction = joinVecLines(buffer);
+        if (stateAfterAction != stateBeforeAction || cursorX != oldXPos || cursorY != oldYPos) {
+            // Only cache certain actions that change buffer state
+            if (ch >= 32 || ch == 10 || ch == KEY_BACKSPACE || ch == 127 || 
+                ch == 330 || ch == CTRL_KEY('k') || ch == CTRL_KEY('v') || ch == 9) {
+                appendCacheActionBuffer("edit", stateAfterAction, ch, cursorX, cursorY, cacheActionBuffer, maxCacheNum);
+            }
+        }
 
         // Update selection end
         if (selectionActive) {

@@ -12,6 +12,14 @@
 #include <iostream>
 
 
+struct cacheAction {
+    std::string action;
+    std::string bufferDiffrence;
+    int keyPressed;
+    int cursorX;
+    int cursorY;
+};
+
 
 // plain join (returns embedded newlines)
 std::string joinVecLines(const std::vector<std::string>& arr) {
