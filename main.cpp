@@ -185,6 +185,7 @@ void loadFile(const std::string& filename) {
 
 void saveFile(const std::string& filename ) {
     //createNewFileFunc(filename);
+    debugWrite("Saving file: " + filename);
     if (checkFileExistance(filename) == false){
         createNewFileFunc(filename);
     }
@@ -842,6 +843,7 @@ int main(int argc, char* argv[]) {
             filename = argv[i]; 
         }
     }
+
     if (!debugTTY.empty()) {
     debugOut.open(debugTTY);
     if (!debugOut.is_open()) {
@@ -889,6 +891,8 @@ int main(int argc, char* argv[]) {
     int colOffset = 0;
     int ch;
     
+
+
     // Initialize lastEditTime to current time
     auto initTime = std::chrono::system_clock::now();
     lastEditTime = std::chrono::system_clock::to_time_t(initTime);
@@ -933,9 +937,28 @@ int main(int argc, char* argv[]) {
         
         switch (ch) {
             case CTRL_KEY('q'):
-                endwin();
-                exit(0);
-            case CTRL_KEY('s'):
+                if (unsavedChanges == true){
+                    clear();
+                    mvprintw(LINES / 2, 0, "You have unsaved changes. Press 'q' again to quit without saving, or any other key to cancel.");
+                    refresh();
+                    while(true) {
+                    int ch = getch();
+                    if (ch == 'q' || ch == 'Q') {
+                        endwin();
+                        return 0;
+                    }
+                    else if (ch > 1 && ch != 49 && ch != 81){
+                        break;
+                    }
+                }
+                }
+                else{
+                    endwin();
+                    return 0;
+                }
+                break;
+            case 19: // CTRL+S
+                debugWrite("CTRL+S pressed - Saving file");
                 saveFile(argv[1]);
                 break;
             case CTRL_KEY('z'):
@@ -1080,11 +1103,18 @@ int main(int argc, char* argv[]) {
                     std::string &line = buffer[cursorY];
                     int len = static_cast<int>(line.size());
                     if (cursorX > 0 && cursorX <= len) {
-                        line.erase(cursorX - 1, 1);
-                        --cursorX;
+                        // Backspace: delete UTF-8 character before cursor
+                        size_t charStart = getUtf8CharStart(line, cursorX - 1);
+                        int charLen = getUtf8CharLen(line, charStart);
+                        line.erase(charStart, charLen);
+                        cursorX -= (charLen > 0 ? charLen : 1);
+                        if (cursorX < 0) cursorX = 0;
                     } else if (cursorX >= 0 && cursorX < len) {
-                        line.erase(cursorX, 1);
+                        // Delete: remove UTF-8 character at cursor
+                        int charLen = getUtf8CharLen(line, cursorX);
+                        line.erase(cursorX, charLen > 0 ? charLen : 1);
                     }
+                    unsavedChanges = true;
                 }
                 break;
             case KEY_F(3):
@@ -1216,6 +1246,7 @@ int main(int argc, char* argv[]) {
                 break;
             }
             case KEY_BACKSPACE:
+                unsavedChanges = true;
             case 127: {
                 showInlineSuggestion = false;
                 inlineSuggestionExists = false;

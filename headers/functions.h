@@ -20,6 +20,20 @@ struct cacheAction {
     int cursorY;
 };
 
+void warnQuitWithUnsavedChanges() {
+    while (true) {
+        clear();
+        mvprintw(0, 0, "You have unsaved changes. Press 'q' again to quit without saving, or any other key to cancel.");
+        refresh();
+        int ch = getch();
+        if (ch == 'q' || ch == 'Q') {
+            endwin();
+            std::exit(0);
+        } else {
+            break; // cancel quit
+        }
+    }
+}
 
 // plain join (returns embedded newlines)
 std::string joinVecLines(const std::vector<std::string>& arr) {
@@ -109,3 +123,25 @@ public:
         std::cout << data.dump(4) << std::endl;
     }
 };
+
+// UTF-8 utility: Get the byte length of a UTF-8 character at position pos
+inline int getUtf8CharLen(const std::string& str, size_t pos) {
+    if (pos >= str.size()) return 0;
+    unsigned char c = static_cast<unsigned char>(str[pos]);
+    if ((c & 0x80) == 0) return 1;           // 0xxxxxxx (1 byte)
+    if ((c & 0xE0) == 0xC0) return 2;        // 110xxxxx (2 bytes)
+    if ((c & 0xF0) == 0xE0) return 3;        // 1110xxxx (3 bytes)
+    if ((c & 0xF8) == 0xF0) return 4;        // 11110xxx (4 bytes)
+    return 1;                                 // invalid, treat as 1 byte
+}
+
+// UTF-8 utility: Find the start position of the UTF-8 character containing byte at pos
+inline size_t getUtf8CharStart(const std::string& str, size_t pos) {
+    if (pos > str.size()) pos = str.size();
+    while (pos > 0) {
+        unsigned char c = static_cast<unsigned char>(str[pos - 1]);
+        if ((c & 0xC0) != 0x80) break;  // Not a continuation byte, so pos-1 is the start
+        --pos;
+    }
+    return pos;
+}
