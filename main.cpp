@@ -842,7 +842,8 @@ int main(int argc, char* argv[]) {
             usleep(50000);
             continue;
         }
-
+        int oldXPos = cursorX;
+        int oldYPos = cursorY;
         switch (ch) {
             case CTRL_KEY('q'):
                 endwin();
@@ -967,10 +968,11 @@ int main(int argc, char* argv[]) {
                 cursorY = 0;
                 break;
             case KEY_F(7):
+
                 displayAISettings(cursorY, cursorX, rowOffset, argv[1], lineNumberScheme, contentScheme, selectionActive, unsavedChanges, colOffset, authToken, llamaCompletionHost, llamaCompletionNPredict, ollamaModel , AiProvider, inlineSuggestionNPredict, AUTO_SUGGESTION_DELAY);
-                //getInlineSuggestion(cursorX, cursorY); 
-                //inlineSuggestionExists = true;
-                //break;
+                cursorX = oldXPos;
+                cursorY = oldYPos;
+                break;
             case 539:
                 if (!buffer.empty()) {
                     cursorY = static_cast<int>(buffer.size() - 1);
