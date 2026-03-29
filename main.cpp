@@ -53,6 +53,11 @@ std::string filename;
 std::vector<cacheAction> cacheActionBuffer; 
 int maxCacheNum = 100;
 int cacheIndex = -1; // tracks current position in undo/redo history (-1 means at latest state)
+std::vector<std::vector<std::string>> inactiveBuffer;
+bool multiFileMode = false;
+std::vector<std::string> fileList;
+int activeBufferIndex = 0;
+
 
 // AI Vars
 std::string modelPath = "/var/models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf";
@@ -148,28 +153,28 @@ void createNewFileFunc(const std::string &filename) {
     }
 }
 
-void loadFile(const std::string& filename) {
+void loadFile(const std::string& filename, std::vector<std::string>& targetBuffer = buffer) {
     if (!checkFileExistance(filename)) {
         debugWrite("file does not exist");
-        buffer.clear();
-        buffer.emplace_back();
+        targetBuffer.clear();
+        targetBuffer.emplace_back();
         lastModifiedTime = 0;
         return;
     }
 
     std::ifstream file(filename);
     if (!file) {
-        buffer.clear();
+        targetBuffer.clear();
         lastModifiedTime = 0;
         return;
     }
 
-    buffer.clear();
+    targetBuffer.clear();
     std::string line;
     while (std::getline(file, line)) {
-        buffer.push_back(line);
+        targetBuffer.push_back(line);
     }
-    if (buffer.empty()) buffer.push_back("");
+    if (targetBuffer.empty()) targetBuffer.push_back("");
 
     try {
         auto ftime = std::filesystem::last_write_time(filename);
@@ -299,7 +304,11 @@ std::string subtractStringLeft(const std::string fullString, int subtraction) {
     return fullString.substr(subtraction);
 }
 
-void draw(int cursorY, int cursorX, int& rowOffset, const std::string& filename,int lineNumberScheme, int contentScheme, bool selectionActive,bool unsavedChanges, int& colOffset, int inlineSuggestionNPredict = 0) 
+void draw(int cursorY, int cursorX, int& rowOffset, 
+    const std::string& filename,int lineNumberScheme, 
+    int contentScheme, bool selectionActive,bool unsavedChanges, 
+    int& colOffset, int inlineSuggestionNPredict = 0 , bool multiFileMode = false ,
+    std::vector<std::string> fileList = std::vector<std::string>() , int activeBufferIndex = 0)
 {
 erase();
 
@@ -339,12 +348,23 @@ if (colOffset > maxColOffset) colOffset = maxColOffset;
 // --- HEADER ---
 attron(A_BOLD);
 mvhline(0, 0, ' ', COLS); 
+if (multiFileMode) {
+mvprintw(0, 0, "Idet-Editor - File: %s%s | Selection: %s | Suggestion Length: %d | File: %d/%ld",
+         filename.c_str(),
+         unsavedChanges ? "*" : "",
+         selectionActive ? "ON" : "OFF", 
+        inlineSuggestionNPredict,
+        activeBufferIndex + 1,
+        fileList.size()
+        );
+    }else{
 mvprintw(0, 0, "Idet-Editor - File: %s%s | Selection: %s | Suggestion Length: %d",
          filename.c_str(),
          unsavedChanges ? "*" : "",
          selectionActive ? "ON" : "OFF", 
         inlineSuggestionNPredict
         );
+    }
 attroff(A_BOLD);
 int selTop = std::min(selStartY, selEndY);
 int selBottom = std::max(selStartY, selEndY);
@@ -763,6 +783,31 @@ void getInlineSuggestion(int cursorX, int cursorY){
         showInlineSuggestion = true;
 }
 
+void changeActiveBuffer(
+    std::vector<std::vector<std::string>>& inactiveBuffer,
+    std::vector<std::string>& activeBuffer,
+    int& currentActiveIndex,   
+    int newActiveIndex
+) {
+    if (newActiveIndex < 0 || newActiveIndex >= (int)inactiveBuffer.size()) {
+        debugWrite("Invalid buffer index: " + std::to_string(newActiveIndex));
+        return;
+    }
+
+
+    if (currentActiveIndex >= 0 && currentActiveIndex < (int)inactiveBuffer.size()) {
+        inactiveBuffer[currentActiveIndex] = std::move(activeBuffer);
+    }
+
+    activeBuffer = std::move(inactiveBuffer[newActiveIndex]);
+
+    inactiveBuffer[newActiveIndex].clear();
+
+    currentActiveIndex = newActiveIndex;
+
+    debugWrite("Switched to buffer index: " + std::to_string(newActiveIndex));
+}
+
 
 int main(int argc, char* argv[]) {
     // Set locale for UTF-8 support
@@ -774,74 +819,80 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     std::string debugTTY;
+    // check the early args
+    for (int i = 1; i < argc; i++) {
+        if (std::string(argv[i]) == "--multiFile") {
+            multiFileMode = true;
+        }
+    }
+    
     // check the args
     for (int i = 1; i < argc; i++) {
-        if (std::string(argv[i]) == "-d" && i + 1 < argc) {
-            debugTTY = argv[i + 1];
+        std::string arg = argv[i];
+
+        if (arg == "-d" && i + 1 < argc) {
+            debugTTY = argv[++i]; // skip value
         }
-        if (std::string(argv[i]) == "-h" || std::string(argv[i]) == "--help") {
+        else if (arg == "-h" || arg == "--help") {
             printf("Usage: %s <filename> [-d debug_pipe]\n", argv[0]);
             return 0;
         }
-        if (std::string(argv[i]) == "-v" || std::string(argv[i]) == "--version") {
+        else if (arg == "-v" || arg == "--version") {
             printf("Version %s\n", version.c_str());
             return 0;
         }
-        if (std::string(argv[i]) == "-p" || std::string(argv[i]) == "--provider") {
-            
-            AiProvider = argv[i + 1];
+        else if (arg == "-p" || arg == "--provider") {
+            if (i + 1 < argc) AiProvider = argv[++i];
         }
-        if (std::string(argv[i]) == "-m" || std::string(argv[i]) == "--model") {
-            if (argv[i + 1]){
-                modelPath = argv[i + 1];
+        else if (arg == "-m" || arg == "--model") {
+            if (i + 1 < argc) modelPath = argv[++i];
+        }
+        else if (arg == "-a" || arg == "--auth") {
+            if (i + 1 < argc) authToken = argv[++i];
+        }
+        else if (arg == "--ollamaModel") {
+            if (i + 1 < argc) ollamaModel = argv[++i];
+        }
+        else if (arg == "-i" || arg == "--inline") {
+            if (i + 1 < argc) {
+                try {
+                    inlineSuggestionNPredict = std::stoi(argv[++i]);
+                } catch (...) {}
             }
         }
-        if (std::string(argv[i]) == "-a" || std::string(argv[i]) == "--auth") {
-            if (argv[i + 1]){
-                authToken = argv[i + 1]; 
+        else if (arg == "-h" || arg == "--host") {
+            if (i + 1 < argc) {
+                std::string val = argv[++i];
+                if (val.rfind("http", 0) == 0)
+                    llamaCompletionHost = val;
+                else
+                    llamaCompletionHost = "http://" + val;
             }
         }
-        if (std::string(argv[i]) == "--ollamaModel") {
-            if (argv[i + 1]){
-                ollamaModel = argv[i+1];
-            }
+        else if (arg == "-n" || arg == "--npredict") {
+            if (i + 1 < argc) llamaCompletionNPredict = argv[++i];
         }
-        if (i + 1 < argc &&
-            (std::string_view(argv[i]) == "-i" || std::string_view(argv[i]) == "--inline"))
-        {
-            // Convert the next argument to an integer
-            try {
-                inlineSuggestionNPredict = std::stoi(argv[i + 1]);  // throws if not numeric
-            } catch (const std::invalid_argument&) {
-                // handle “not a number” error
-            } catch (const std::out_of_range&) {
-                // handle “too large” error
-            }
-        }
-        if (std::string(argv[i]) == "-h" || std::string(argv[i]) == "--host") {
-            if (argv[i+1][0] == 'h' || argv[i+1][1] == 't'){
-                llamaCompletionHost = argv[i + 1];
-            }
-            else{
-                llamaCompletionHost = "http://";
-                llamaCompletionHost.append(argv[i + 1]);
-            }
-            debugWrite("using llamaCompletionHost: " + llamaCompletionHost);
-        }
-        if (std::string(argv[i]) == "-n" || std::string(argv[i]) == "--npredict") {
-            llamaCompletionNPredict = argv[i + 1];
-            
-        }
-        if (std::string(argv[i]) == "--noNewFile") {
+        else if (arg == "--noNewFile") {
             createNewFile = false;
         }
-        //if(!std::string(argv[i]).find('-', 0) && std::string(argv[i-1]).find('-', 0)){
-        //    filename = std::string(argv[i]);
-        //}
-        if (argv[i - 1][0] != '-' && argv[i][0] != '-'){
+        else if (arg[0] != '-') {
             
-            filename = argv[i]; 
+            if (multiFileMode) {
+                fileList.push_back(arg);
+                //std::cerr << "Adding file: " << arg << "\n";
+            } else {
+                filename = arg;
+            }
         }
+    }
+    
+    if (multiFileMode){
+        if (fileList.empty()){
+            std::cerr << "Multi-file mode enabled but no files provided!\n";
+            return 1;
+        }
+        debugWrite("Files to load: " + strVecToString(fileList));
+        filename = fileList[0]; // set first file as main buffer file
     }
 
     if (!debugTTY.empty()) {
@@ -869,7 +920,20 @@ int main(int argc, char* argv[]) {
             loadFile(filename);
         }
     }
-    
+    // load other files into inactive buffers if multiFileMode is enabled
+    if (multiFileMode == true) {
+        //leave first entry in inactiveBuffer free for main buffer
+        std::vector<std::string> emptyBuffer;
+
+        inactiveBuffer.push_back(emptyBuffer); // main buffer
+        for (int i = 1; i < fileList.size(); i++) {
+            std::string handlingFile = fileList[i];
+            std::vector<std::string> tmpFileBuffer;
+            loadFile(handlingFile, tmpFileBuffer);
+            inactiveBuffer.push_back(tmpFileBuffer);
+        }
+    }
+
     // Initialize ncurses
     initscr();
     start_color();
@@ -903,7 +967,7 @@ int main(int argc, char* argv[]) {
         if (cursorY - rowOffset >= maxVisibleRows) rowOffset = cursorY - maxVisibleRows + 1;
         if (cursorY - rowOffset < 0) rowOffset = cursorY;
 
-        draw(cursorY, cursorX, rowOffset, argv[1], lineNumberScheme, contentScheme, selectionActive, unsavedChanges, colOffset, inlineSuggestionNPredict);
+        draw(cursorY, cursorX, rowOffset, filename, lineNumberScheme, contentScheme, selectionActive, unsavedChanges, colOffset, inlineSuggestionNPredict, multiFileMode, fileList, activeBufferIndex);
 
         // Check for auto-suggestion trigger after 3 seconds of inactivity
         auto now = std::chrono::system_clock::now();
@@ -967,6 +1031,34 @@ int main(int argc, char* argv[]) {
             case CTRL_KEY('y'):
                 redo(cursorX, cursorY);
                 break;
+            case 569:
+            debugWrite("CTRL+Tab pressed - Switch to next buffer with active buffer index: " + std::to_string(activeBufferIndex));
+                    if (multiFileMode && activeBufferIndex < inactiveBuffer.size() - 1) {
+                        changeActiveBuffer(inactiveBuffer,buffer, activeBufferIndex, activeBufferIndex + 1);
+                        filename = fileList[activeBufferIndex];
+                        //activeBufferIndex++;
+                        cursorX = 0;
+                        cursorY = 0;
+                        break;
+                    }
+                    else{
+                        debugWrite("No next buffer to switch to");
+                        break;
+                    }
+            case 554:
+            debugWrite("CTRL+Shift+Tab pressed - Switch to previous buffer with active buffer index: " + std::to_string(activeBufferIndex));
+                    if (multiFileMode && activeBufferIndex > 0) {
+                        changeActiveBuffer(inactiveBuffer,buffer, activeBufferIndex,activeBufferIndex - 1);
+                        filename = fileList[activeBufferIndex];
+                        //activeBufferIndex--;
+                        cursorX = 0;
+                        cursorY = 0;
+                        break;
+                    }
+                    else{
+                        debugWrite("No previous buffer to switch to");
+                        break;
+                    }
             case KEY_F(2):
                 lineNumberScheme = (lineNumberScheme == 1) ? 2 : 1;
                 contentScheme    = (contentScheme == 3) ? 4 : 3;

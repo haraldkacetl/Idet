@@ -78,6 +78,18 @@ std::string getStingFromVec(const std::vector<std::string>& inArray){
 
 using json = nlohmann::json;
 
+std::string strVecToString(const std::vector<std::string>& vec) {
+    std::string result;
+    for (const auto& str : vec) {
+        result += str + "\n";
+    }
+    if (!result.empty()) {
+        result.pop_back(); // Remove the last newline
+    }
+    return result;
+}
+
+
 class ConfigLoader {
 private:
     json data;
