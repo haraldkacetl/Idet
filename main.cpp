@@ -57,7 +57,7 @@ std::vector<std::vector<std::string>> inactiveBuffer;
 bool multiFileMode = false;
 std::vector<std::string> fileList;
 int activeBufferIndex = 0;
-
+std::vector<char> openCharList;
 
 // AI Vars
 std::string modelPath = "/var/models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf";
@@ -75,6 +75,80 @@ bool inlineSuggestionExists = false;
 bool allowInlineSuggestion = true;
 bool autoSuggestionTriggered = false;
 
+std::string getPossibleCompleteChar(char givenChar , std::vector<char>& openCharList){
+    std::string backString = "";
+    std::vector<char> correspondingCharStart = {'(','{','[', '"', '\''};
+    std::vector<char> correspondingCharEnd = {')','}',']', '"', '\''};
+    backString.append(std::to_string(givenChar));
+    if (openCharList.size() > 0){
+        for (int i = 0; i < openCharList.size(); i++){
+            char activeChar = openCharList[i];
+            if (activeChar == givenChar){
+                return backString;
+            }
+        }
+        // getcharcorrespondingnum
+        int charCorrespondingNum;
+        for (int i = 0; i < correspondingCharStart.size(); i++){
+            if (correspondingCharStart[i] == givenChar){
+                charCorrespondingNum = i;
+                break;
+            }
+        }
+        backString.append(std::to_string(correspondingCharEnd[charCorrespondingNum]));
+        return backString;
+    }
+    else{
+        int charCorrespondingNum;
+        for (int i = 0; i < correspondingCharStart.size(); i++){
+            if (correspondingCharStart[i] == givenChar){
+                charCorrespondingNum = i;
+                break;
+            }
+        }
+        backString.append(std::to_string(correspondingCharEnd[charCorrespondingNum]));
+        return backString;
+    }
+
+}
+
+char getClosingChar(char openChar) {
+    static const std::vector<char> openChars = {'(', '{', '[', '"', '\''};
+    static const std::vector<char> closeChars = {')', '}', ']', '"', '\''};
+    
+    for (size_t i = 0; i < openChars.size(); i++) {
+        if (openChars[i] == openChar) {
+            return closeChars[i];
+        }
+    }
+    return '\0';
+}
+
+bool isOpeningChar(char c) {
+    return c == '(' || c == '{' || c == '[' || c == '"' || c == '\'';;
+}
+
+void updateOpenCharList(std::vector<std::string> buffer, std::vector<char>& openCharList, int cursorX, int cursorY){
+    std::vector<char> correspondingCharStart = {'(','{','[', '"', '\''};
+    std::vector<char> correspondingCharEnd = {')','}',']', '"', '\''};
+    for (int i = 0; i < correspondingCharStart.size(); i++){
+        char activeCharStart = correspondingCharStart[i];
+        char activeCharEnd = correspondingCharEnd[i];
+        if (buffer[cursorY][cursorX] == activeCharStart){
+            openCharList.push_back(activeCharStart);
+            break;
+        }
+        else if (buffer[cursorY][cursorX] == activeCharEnd){
+            for (int j = 0; j < openCharList.size(); j++){
+                if (openCharList[j] == activeCharEnd){
+                    openCharList.erase(openCharList.begin() + j);
+                    break;
+                }
+            }
+            break;
+        }
+    }
+}
 
 void displayInlineSuggestion(const std::vector<std::string>& inlineBuffer,
                              int inlineBufferPosX, int inlineBufferPosY,
@@ -1397,8 +1471,20 @@ int main(int argc, char* argv[]) {
                     if (bytePos > buffer[cursorY].size()) {
                         buffer[cursorY].resize(bytePos, ' ');
                     }
-                    buffer[cursorY].insert(bytePos, 1, static_cast<char>(ch));
+                    char charToInsert = static_cast<char>(ch);
+                    buffer[cursorY].insert(bytePos, 1, charToInsert);
                     cursorX += 1;
+                    
+                    // Auto-close brackets and quotes
+                    if (isOpeningChar(charToInsert)) {
+                        char closingChar = getClosingChar(charToInsert);
+                        if (closingChar != '\0') {
+                            std::size_t closeBytePos = char_to_byte_index(buffer[cursorY], cursorX);
+                            buffer[cursorY].insert(closeBytePos, 1, closingChar);
+                            // Cursor stays between opening and closing char
+                        }
+                    }
+                    
                     unsavedChanges = true;
                     showInlineSuggestion = false;
                     inlineSuggestionExists = false;
