@@ -39,6 +39,23 @@ void switchStartEnd(int& selStartX, int& selEndX) {
     std::swap(selStartX, selEndX);
 }
 
+
+std::string getWordSelectionRight(const std::string rightString) {
+    std::string wordRight = "";
+
+    for (char c : rightString) {
+        if (c == ' ') {
+            if (c == rightString[0]) {
+                continue; // skip leading spaces
+            }
+            return wordRight; 
+        }
+        wordRight += c;
+    }
+
+    return wordRight; 
+}
+
 std::string subtractStringLeft(const std::string fullString, int subtraction) {
     if (subtraction <= 0) {
         return fullString; 
@@ -78,6 +95,7 @@ std::string subtractStringRight(const std::string& lineContent, int cursorXPos) 
     if (cursorXPos < 0 || cursorXPos > (int)lineContent.size()) {
         return lineContent; // invalid position, return original
     }
+    
     return lineContent.substr(0, cursorXPos);
 }
 

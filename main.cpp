@@ -332,18 +332,7 @@ std::string formatTime(int time) {
     return std::string(buffer);
 }
 
-std::string getWordSelectionRight(const std::string rightString) {
-    std::string wordRight = "";
 
-    for (char c : rightString) {
-        if (c == ' ') {
-            return wordRight; 
-        }
-        wordRight += c;
-    }
-
-    return wordRight; 
-}
 
 void showHelp() {
     erase();  // clear the screen
@@ -1229,6 +1218,7 @@ int main(int argc, char* argv[]) {
                 }
             }
             case 570: {
+                if (!selectionActive){
                 debugWrite("shift + strg + arrow right");
                 selectionActive = true;
                 selStartX = cursorX;
@@ -1238,13 +1228,29 @@ int main(int argc, char* argv[]) {
                 debugWrite("cursorY pos: " + std::to_string(cursorY));
                 debugWrite("current line content:" + buffer[cursorY]);
                 std::string onRight = getWordSelectionRight(stringAfter);
+                
                 debugWrite("OnRight is: " + onRight);
                 int moveRight = getUtf8StrLen(onRight);
                 cursorX += moveRight;
                 selEndX = cursorX;
                 break;
+                }
+                else{
+                    debugWrite("shift + strg + arrow right - extending selection");
+                    std::string stringAfter = subtractStringLeft(buffer[cursorY], cursorX);
+                    debugWrite("cursorY pos: " + std::to_string(cursorY));
+                    debugWrite("current line content:" + buffer[cursorY]);
+                    std::string onRight = getWordSelectionRight(stringAfter);
+                    debugWrite("OnRight is: " + onRight);
+                    int moveRight = getUtf8StrLen(onRight);
+                    cursorX += moveRight;
+                    selEndX = cursorX;
+                    debugWrite("selStartX: " + std::to_string(selStartX) + " selEndX: " + std::to_string(selEndX));
+                    break;
+                }
             }
             case 555:{
+                if (!selectionActive){
                 debugWrite("shift + strg + arrow left");
                 selectionActive = true;
                 selStartX = cursorX;
@@ -1263,6 +1269,21 @@ int main(int argc, char* argv[]) {
                 debugWrite("selStartX: " + std::to_string(selStartX) + " selEndX: " + std::to_string(selEndX));
 
                 break;
+                }
+                else{
+                    debugWrite("shift + strg + arrow left - extending selection");
+                    std::string stringBefore = subtractStringRight(buffer[cursorY], cursorX);
+                    debugWrite("cursorY pos: " + std::to_string(cursorY));
+                    debugWrite("current line content:" + buffer[cursorY]);
+                    std::string onLeft = getWordSelectionLeft(stringBefore);
+                    debugWrite("OnLeft is: " + onLeft);
+                    int moveLeft = getUtf8StrLen(onLeft);
+                    cursorX -= moveLeft;
+                    if (cursorX < 0) cursorX = 0;
+                    selEndX = cursorX;
+                    debugWrite("selStartX: " + std::to_string(selStartX) + " selEndX: " + std::to_string(selEndX));
+                    break;
+                }
             }
             
             case KEY_F(1):
