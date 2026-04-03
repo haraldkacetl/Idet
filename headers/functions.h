@@ -89,6 +89,10 @@ std::string strVecToString(const std::vector<std::string>& vec) {
     return result;
 }
 
+std::string jsonToString(const json& j) {
+    return j.dump();
+}   
+
 
 class ConfigLoader {
 private:

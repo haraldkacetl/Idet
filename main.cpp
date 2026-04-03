@@ -495,7 +495,7 @@ for (int i = 0; i < maxRows && (rowOffset + i) < (int)buffer.size(); ++i) {
 // --- STATUS BAR ---
 attron(A_REVERSE);
 mvhline(LINES - 1, 0, ' ', COLS); // fill status bar
-mvprintw(LINES - 1, 0, "CTRL+S=Save | CTRL+Q=Quit | Line %d/%d | Column %d/%d | Last Modified: %s",
+mvprintw(LINES - 1, 0, "CTRL+S=Save | CTRL+Q=Quit | F7 AI-Settings | Line %d/%d | Column %d/%d | Last Modified: %s",
          cursorY + 1, (int)buffer.size(),
          cursorX + 1, (int)buffer[cursorY].size() + 1,
          formatTime(lastModifiedTime).c_str());
@@ -898,8 +898,12 @@ int main(int argc, char* argv[]) {
         if (std::string(argv[i]) == "--multiFile") {
             multiFileMode = true;
         }
+        if (std::string(argv[i]) == "--config") {
+            configPath = argv[i + 1];
+        }
     }
-    
+
+
     // check the args
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
@@ -959,7 +963,8 @@ int main(int argc, char* argv[]) {
             }
         }
     }
-    
+
+
     if (multiFileMode){
         if (fileList.empty()){
             std::cerr << "Multi-file mode enabled but no files provided!\n";
@@ -975,14 +980,16 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "Failed to open debug pipe: %s\n", debugTTY.c_str());
     }
     }
-    if (checkFileExistance(configPath) == true){
+    debugWrite("Editor started");
+            // init config file
+    if (checkFileExistance(configPath)){
             ConfigLoader config(configPath);
+            debugWrite("Config file content: " + jsonToString(config.get()));
+            loadConfig(configPath);
     }
     else {
-        debugWrite("No config file found");
+        debugWrite("!!!No config file found at " + configPath);
     }
-    debugWrite("Editor started");
-
     debugWrite("Loading File: " + filename);
     if (checkFileExistance(filename)){
         loadFile(filename);

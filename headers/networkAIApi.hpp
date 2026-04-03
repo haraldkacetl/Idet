@@ -15,6 +15,49 @@ static size_t WriteCallback(void* contents, size_t size, size_t nmemb,
     return size * nmemb;
 }
 
+
+// ------------------------------------------------------------------
+// Api Pings
+// ------------------------------------------------------------------
+bool pingLlama(const std::string& url = "http://localhost:8080/ping", LogFn logger = nullptr) {
+    CURL* curl = curl_easy_init();
+    if (!curl) {
+        if (logger) logger("curl_easy_init() failed");
+        return false;
+    }
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L); 
+    curl_easy_setopt(curl, CURLOPT_NOBODY, 1L); 
+    CURLcode res = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
+    if (res == CURLE_OK) {
+        if (logger) logger("Successfully pinged LlamaCPP API at " + url);
+        return true;
+    } else {
+        if (logger) logger("Failed to ping LlamaCPP API at " + url + ": " + std::string(curl_easy_strerror(res)));
+        return false;
+}
+}
+bool pingOllama(const std::string& url = "http://localhost:11434/api/health", LogFn logger = nullptr) {
+    CURL* curl = curl_easy_init();
+    if (!curl) {
+        if (logger) logger("curl_easy_init() failed");
+        return false;
+    }
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
+    curl_easy_setopt(curl, CURLOPT_NOBODY, 1L);
+    CURLcode res = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
+    if (res == CURLE_OK) {
+        if (logger) logger("Successfully pinged Ollama API at " + url);
+        return true;
+    } else {
+        if (logger) logger("Failed to ping Ollama API at " + url + ": " + std::string(curl_easy_strerror(res)));
+        return false;
+    }
+}
+
 // ------------------------------------------------------------------
 // LlamaCPP helpers (unchanged)
 // ------------------------------------------------------------------
