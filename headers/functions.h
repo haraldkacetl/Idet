@@ -40,6 +40,17 @@ void switchStartEnd(int& selStartX, int& selEndX) {
 }
 
 
+int getUtf8CharLenReverse(std::string string_before){
+    if (string_before.empty()) return 0;
+    unsigned char c = static_cast<unsigned char>(string_before.back());
+    if ((c & 0x80) == 0) return 1;           // 0xxxxxxx (1 byte)
+    if ((c & 0xE0) == 0xC0) return 2;        // 110xxxxx (2 bytes)
+    if ((c & 0xF0) == 0xE0) return 3;        // 1110xxxx (3 bytes)
+    if ((c & 0xF8) == 0xF0) return 4;        // 11110xxx (4 bytes)
+    return 1;                                 // invalid, treat as 1 byte
+}
+
+
 std::string getWordSelectionRight(const std::string rightString) {
     std::string wordRight = "";
 

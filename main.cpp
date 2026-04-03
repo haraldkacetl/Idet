@@ -1079,6 +1079,17 @@ int main(int argc, char* argv[]) {
                     return 0;
                 }
                 break;
+            case 27: // ESC key
+                if (showInlineSuggestion) {
+                    showInlineSuggestion = false;
+                    inlineBuffer.clear();
+                    debugWrite("Inline suggestion cancelled with ESC");
+                }
+                else if (selectionActive) {
+                    selectionActive = false;
+                    debugWrite("Selection cancelled with ESC");
+                }
+                break;
             case 19: // CTRL+S
                 debugWrite("CTRL+S pressed - Saving file");
                 saveFile(argv[1]);
@@ -1285,7 +1296,74 @@ int main(int argc, char* argv[]) {
                     break;
                 }
             }
-            
+            case 402:
+                // shift + arrow right
+                // adds 1 char to selection and moves cursor
+                if (!selectionActive){
+                debugWrite("shift + arrow right");
+                selectionActive = true;
+                selStartX = cursorX;
+                selStartY = cursorY;
+                selEndY = cursorY;
+                if (cursorY < buffer.size()) {
+                    std::string stringAfter = subtractStringLeft(buffer[cursorY], cursorX);
+                    if (!stringAfter.empty()) {
+                        int charLen = getUtf8CharLen(stringAfter, 0);
+                        cursorX += charLen;
+                        selEndX = cursorX;
+                    }
+                }
+                break;
+                }
+                else{
+                    debugWrite("shift + arrow right - extending selection");
+                    if (cursorY < buffer.size()) {
+                        std::string stringAfter = subtractStringLeft(buffer[cursorY], cursorX);
+                        if (!stringAfter.empty()) {
+                            int charLen = getUtf8CharLen(stringAfter, 0);
+                            cursorX += charLen;
+                            selEndX = cursorX;
+                            debugWrite("selStartX: " + std::to_string(selStartX) + " selEndX: " + std::to_string(selEndX));
+                        }
+                    }
+                    break;
+                }
+            case 393:
+                // shift + arrow left
+                // adds 1 char to the left to selection and moves cursor
+                if (!selectionActive){
+                debugWrite("shift + arrow left");
+                selectionActive = true;
+                selStartX = cursorX;
+                selStartY = cursorY;
+                selEndY = cursorY;
+                if (cursorY < buffer.size()) {
+                    std::string stringBefore = subtractStringRight(buffer[cursorY], cursorX);
+                    if (!stringBefore.empty()) {
+                        int charLen = getUtf8CharLenReverse(stringBefore);
+                        cursorX -= charLen;
+                        if (cursorX < 0) cursorX = 0;
+                        selEndX = cursorX;
+                        debugWrite("selStartX: " + std::to_string(selStartX) + " selEndX: " + std::to_string(selEndX));
+                    }
+                }
+                break;
+                }
+                else{
+                    debugWrite("shift + arrow left - extending selection");
+                    if (cursorY < buffer.size()) {
+                        std::string stringBefore = subtractStringRight(buffer[cursorY], cursorX);
+                        if (!stringBefore.empty()) {
+                            int charLen = getUtf8CharLenReverse(stringBefore);
+                            cursorX -= charLen;
+                            if (cursorX < 0) cursorX = 0;
+                            selEndX = cursorX;
+                            debugWrite("selStartX: " + std::to_string(selStartX) + " selEndX: " + std::to_string(selEndX));
+                        }
+                    }
+                    break;
+                }
+
             case KEY_F(1):
                 showHelp();
                 break;
