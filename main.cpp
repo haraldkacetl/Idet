@@ -1296,6 +1296,76 @@ int main(int argc, char* argv[]) {
                     break;
                 }
             }
+            case 337:
+                // shift + up
+                debugWrite(selectionActive ? "shift + arrow up - extending" : "shift + arrow up");
+
+                if (!selectionActive) {
+                    selectionActive = true;
+                    selStartX = cursorX;
+                    selStartY = cursorY;
+                }
+
+                if (cursorY > 0) {
+                    cursorY--;
+                    if (cursorX > buffer[cursorY].size()) {
+                        cursorX = buffer[cursorY].size();
+                    }
+                } else {
+                    cursorX = 0;
+                }
+                selEndX = cursorX;
+                selEndY = cursorY;
+
+                break;
+            case 336:
+                // shift + down
+                debugWrite(selectionActive ? "shift + arrow down - extending" : "shift + arrow down");
+
+                if (!selectionActive) {
+                    selectionActive = true;
+                    selStartX = cursorX;
+                    selStartY = cursorY;
+                }
+                if (cursorY < buffer.size() - 1) {
+                    cursorY++;
+                    if (cursorX > buffer[cursorY].size()) {
+                        cursorX = buffer[cursorY].size();
+                    }
+                } else {   
+                    cursorX = buffer[cursorY].size();
+                }
+                selEndX = cursorX;
+                selEndY = cursorY;
+                break;
+
+            case 386:
+                // shift + end
+                debugWrite(selectionActive ? "shift + end - extending" : "shift + end");
+                if (!selectionActive){
+                    selectionActive = true;
+                    selStartX = cursorX;
+                    selStartY = cursorY;
+                }
+                selEndX = buffer[-1].size();
+                selEndY = buffer.size();
+                cursorX = buffer[-1].size();
+                cursorY = buffer.size();
+
+                break;
+            case 391:
+                // shift + home
+                debugWrite(selectionActive ? "shift + home - extending" : "shift + home");
+                if (!selectionActive){
+                    selectionActive = true;
+                    selStartX = cursorX;
+                    selStartY = cursorY;
+                }
+                selEndX = 0;
+                selEndY = 0;
+                cursorX = 0;
+                cursorY = 0;
+                break;
             case 402:
                 // shift + arrow right
                 // adds 1 char to selection and moves cursor
