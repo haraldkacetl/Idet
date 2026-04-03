@@ -20,6 +20,36 @@ struct cacheAction {
     int cursorY;
 };
 
+struct posCords {
+    bool exists;
+    int x;
+    int y;
+};
+struct closeXPos{
+    bool hasPos;
+    int xPos;
+};
+
+
+closeXPos getClosestPosCordsX(std::string lineString, std::string compareString){
+    // checks if compareString is in lineString
+    if (lineString.find(compareString) != std::string::npos){
+        return {true, (int)lineString.find(compareString)};
+    }
+    return {false, -1};
+}
+posCords findInBuffer(std::vector<std::string> &buffer, std::string compareString){
+    for (int y = 0; y < buffer.size(); y++){
+        closeXPos xPos = getClosestPosCordsX(buffer[y], compareString);
+        if (xPos.hasPos){
+            return {true, xPos.xPos, y};
+        }
+    }
+    return {false, -1 , -1};
+}
+
+
+
 void warnQuitWithUnsavedChanges() {
     while (true) {
         clear();

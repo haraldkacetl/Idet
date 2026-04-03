@@ -1064,15 +1064,15 @@ int main(int argc, char* argv[]) {
                     mvprintw(LINES / 2, 0, "You have unsaved changes. Press 'q' again to quit without saving, or any other key to cancel.");
                     refresh();
                     while(true) {
-                    int ch = getch();
-                    if (ch == 'q' || ch == 'Q') {
-                        endwin();
-                        return 0;
+                        int ch = getch();
+                        if (ch == 'q' || ch == 'Q') {
+                            endwin();
+                            return 0;
+                        }
+                        else if (ch > 1 && ch != 49 && ch != 81){
+                            break;
+                        }
                     }
-                    else if (ch > 1 && ch != 49 && ch != 81){
-                        break;
-                    }
-                }
                 }
                 else{
                     endwin();
@@ -1209,15 +1209,15 @@ int main(int argc, char* argv[]) {
                                     buffer[cursorY].resize(bytePos, ' ');
                                 }
                                 buffer[cursorY].insert(bytePos, line);
-                                cursorX += static_cast<int>(line.size()); // size() is enough since we know it's ASCII now
+                                cursorX += static_cast<int>(line.size()); 
                             } else {
-                                // Subsequent lines - create new lines
+                                
                                 std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
                                 std::string restOfLine = buffer[cursorY].substr(bytePos);
                                 buffer[cursorY] = buffer[cursorY].substr(0, bytePos);
                                 cursorY++;
                                 buffer.insert(buffer.begin() + cursorY, line + restOfLine);
-                                cursorX = static_cast<int>(line.size()); // size() is enough since we know it's ASCII now
+                                cursorX = static_cast<int>(line.size()); 
                             }
                         }
                         unsavedChanges = true;
