@@ -58,6 +58,8 @@ bool multiFileMode = false;
 std::vector<std::string> fileList;
 int activeBufferIndex = 0;
 std::vector<char> openCharList;
+bool activeSearch = false;
+std::string searchTerm = "";
 
 // AI Vars
 std::string modelPath = "/var/models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf";
@@ -1020,7 +1022,8 @@ int main(int argc, char* argv[]) {
     init_pair(4, COLOR_YELLOW, COLOR_BLACK); // alternate content
 
     init_pair(10, COLOR_CYAN, COLOR_BLUE);
-
+    init_pair(100, COLOR_WHITE,COLOR_BLACK); 
+    init_pair(110, COLOR_BLACK,COLOR_WHITE);
     raw();
     keypad(stdscr, TRUE);
     noecho();
@@ -1044,7 +1047,10 @@ int main(int argc, char* argv[]) {
         if (cursorY - rowOffset < 0) rowOffset = cursorY;
 
         draw(cursorY, cursorX, rowOffset, filename, lineNumberScheme, contentScheme, selectionActive, unsavedChanges, colOffset, inlineSuggestionNPredict, multiFileMode, fileList, activeBufferIndex);
-
+        if (activeSearch){
+            searchOverlay(buffer, cursorX, cursorY, activeSearch, searchTerm);
+            continue;
+        }
         // Check for auto-suggestion trigger after 3 seconds of inactivity
         auto now = std::chrono::system_clock::now();
         std::time_t timeNow = std::chrono::system_clock::to_time_t(now);
@@ -1683,6 +1689,10 @@ int main(int argc, char* argv[]) {
                 }
                 break;
             }
+            case 270:
+                searchOverlay(buffer, cursorX, cursorY, activeSearch, searchTerm);
+                
+                break;
             default: {
                 if (ch >= 128 && ch <= 255) {
                     std::string utf8_char;

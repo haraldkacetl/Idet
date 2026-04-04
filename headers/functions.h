@@ -83,29 +83,252 @@ struct posCords {
     bool exists;
     int x;
     int y;
+    bool afterAlso;
 };
 struct closeXPos{
     bool hasPos;
     int xPos;
+    bool hasSecondPos;
+    int secondXPos;
 };
 
 
-closeXPos getClosestPosCordsX(std::string lineString, std::string compareString){
+closeXPos getClosestPosCordsX(std::string lineString, std::string compareString, int ignoreNFirst = 0, int getNPos = 0){
+    // can also check for multiple position by ignoring first n found positions and returning the next one - for now only return first position
     // checks if compareString is in lineString
+
     if (lineString.find(compareString) != std::string::npos){
+        if (ignoreNFirst > 0){
+            size_t pos = lineString.find(compareString);
+            int foundCount = 0;
+            while (pos != std::string::npos && foundCount < ignoreNFirst) {
+                foundCount++;
+                pos = lineString.find(compareString, pos + compareString.length());
+            }
+            if (pos != std::string::npos){
+                return {true, (int)pos, false, -1};
+            }
+            else{
+                return {false, -1, false, -1};
+            }
+        }
         return {true, (int)lineString.find(compareString)};
     }
     return {false, -1};
 }
-posCords findInBuffer(std::vector<std::string> &buffer, std::string compareString){
-    for (int y = 0; y < buffer.size(); y++){
-        closeXPos xPos = getClosestPosCordsX(buffer[y], compareString);
+posCords findInBuffer(std::vector<std::string> &buffer, std::string compareString, int ignoreNFirst = 0, int getNPos = 0){
+    for (int y = ignoreNFirst; y < buffer.size(); y++){
+        closeXPos xPos = getClosestPosCordsX(buffer[y], compareString, ignoreNFirst, getNPos);
         if (xPos.hasPos){
             return {true, xPos.xPos, y};
         }
     }
     return {false, -1 , -1};
 }
+
+// Find the Nth occurrence of a string starting from a given position
+posCords findNextInBuffer(std::vector<std::string> &buffer, std::string compareString, int startY, int startX) {
+    // Start searching from startY and startX
+    for (int y = startY; y < buffer.size(); y++) {
+        int searchStartX = (y == startY) ? startX : 0;
+        size_t pos = buffer[y].find(compareString, searchStartX);
+        
+        if (pos != std::string::npos) {
+            return {true, (int)pos, y};
+        }
+    }
+    
+    // If not found going forward, wrap around to beginning
+    for (int y = 0; y < startY; y++) {
+        size_t pos = buffer[y].find(compareString);
+        if (pos != std::string::npos) {
+            return {true, (int)pos, y};
+        }
+    }
+    
+    return {false, -1, -1};
+}
+
+// Find the last occurrence of a string in buffer
+posCords findLastInBuffer(std::vector<std::string> &buffer, std::string compareString) {
+    for (int y = buffer.size() - 1; y >= 0; y--) {
+        size_t pos = buffer[y].rfind(compareString);
+        if (pos != std::string::npos) {
+            return {true, (int)pos, y};
+        }
+    }
+    return {false, -1, -1};
+}
+struct colorPair {
+    int pairNum;
+    int fgColor;
+    int bgColor;
+};
+
+void searchOverlay(std::vector<std::string>& buffer, int& cursorX, int& cursorY, bool& searchActive , std::string& searchTerm){
+    searchActive = true;
+    int searchRow = LINES - 2;
+    std::string searchSuggestion = "";
+    
+    
+    int lastFoundY = -1;
+    int lastFoundX = -1;
+
+    while (true) {
+        move(searchRow, 0);
+        clrtoeol();
+        // make suggestion gray
+        attron(COLOR_PAIR(100));
+        mvprintw(searchRow, 0, "Search: %s", searchTerm.c_str());
+        attroff(COLOR_PAIR(100));
+        attron(COLOR_PAIR(110));
+        mvprintw(searchRow, 8 + searchTerm.size(), "%s", searchSuggestion.c_str());
+        attroff(COLOR_PAIR(110));
+        refresh();
+        int ch = getch();
+        
+        if (ch == 27) {
+            searchActive = false;
+            break; // ESC key 
+        } 
+        //also handle backspace
+        else if (ch == KEY_BACKSPACE || ch == 263) {
+            if (!searchTerm.empty()) {
+                searchTerm.pop_back();
+                searchSuggestion = "";
+                lastFoundY = -1;
+                lastFoundX = -1;
+            }
+        } else if (ch == '\n' || ch == '\r' || ch == 10 || ch == 13 || ch == KEY_ENTER) {
+            
+            if (!searchTerm.empty()) {
+                posCords cords;
+                if (lastFoundY >= 0 && lastFoundX >= 0) {
+                    
+                    cords = findNextInBuffer(buffer, searchTerm, lastFoundY, lastFoundX + (int)searchTerm.length());
+                } else {
+                    
+                    cords = findInBuffer(buffer, searchTerm);
+                }
+                
+                if (cords.exists) {
+                    cursorX = cords.x;
+                    cursorY = cords.y;
+                    lastFoundY = cords.y;
+                    lastFoundX = cords.x;
+                }
+                break;
+            }
+            break;
+        } else if (ch == KEY_END) {
+            
+            if (!searchTerm.empty()) {
+                posCords cords = findLastInBuffer(buffer, searchTerm);
+                if (cords.exists) {
+                    cursorX = cords.x;
+                    cursorY = cords.y;
+                    lastFoundY = cords.y;
+                    lastFoundX = cords.x;
+                }
+            }
+        } else if (ch == KEY_HOME) {
+            
+            if (!searchTerm.empty()) {
+                posCords cords = findInBuffer(buffer, searchTerm);
+                if (cords.exists) {
+                    cursorX = cords.x;
+                    cursorY = cords.y;
+                    lastFoundY = cords.y;
+                    lastFoundX = cords.x;
+                }
+            }
+        } else if (ch == KEY_NPAGE) {
+            
+            if (!searchTerm.empty() && lastFoundY >= 0) {
+                int nextSearchY = lastFoundY + (LINES / 2);
+                posCords cords = findNextInBuffer(buffer, searchTerm, nextSearchY, 0);
+                if (cords.exists) {
+                    cursorX = cords.x;
+                    cursorY = cords.y;
+                    lastFoundY = cords.y;
+                    lastFoundX = cords.x;
+                }
+            }
+        } else if (isprint(ch)) {
+            searchTerm += static_cast<char>(ch);
+            lastFoundY = -1;
+            lastFoundX = -1;
+        }
+        //also utf-8 characters
+        else if (ch >= 128 && ch <= 255) {
+            lastFoundY = -1;
+            lastFoundX = -1;
+            std::string utf8_char;
+            utf8_char += static_cast<char>(ch);
+            int remaining_bytes = 0;
+            unsigned char uc = static_cast<unsigned char>(ch);
+            if ((uc & 0xE0) == 0xC0) remaining_bytes = 1;
+            else if ((uc & 0xF0) == 0xE0) remaining_bytes = 2;
+            else if ((uc & 0xF8) == 0xF0) remaining_bytes = 3;
+            for (int i = 0; i < remaining_bytes; ++i) {
+                int next_byte = getch();
+                if (next_byte > 0) {
+                    utf8_char += static_cast<char>(next_byte);
+                }
+            }
+            searchTerm += utf8_char;
+        }
+        // TAB - accept suggestion
+        else if (ch == '\t') {
+            if (!searchSuggestion.empty()) {
+                searchTerm += searchSuggestion;
+                searchSuggestion = "";
+                lastFoundY = -1;
+                lastFoundX = -1;
+            }
+        }
+        // get suggestion
+        if (!searchTerm.empty()) {
+            posCords cords = findInBuffer(buffer, searchTerm);
+            if (cords.exists) {
+                searchSuggestion = buffer[cords.y].substr(cords.x + searchTerm.size());
+            } else {
+                searchSuggestion = "";
+            }
+        } else {
+            searchSuggestion = "";
+        }
+    }
+}
+
+posCords suggestSearch(std::string startString, std::vector<std::string> &buffer){
+    posCords exampleCords = findInBuffer(buffer, startString);
+    if (exampleCords.exists){
+        return exampleCords;
+    }
+    return {false, -1, -1};
+}
+
+
+std::string getWordFromCords(int cordX,int cordY, std::vector<std::string> &buffer){
+    if (cordY < 0 || cordY >= buffer.size()) return "";
+    const std::string& line = buffer[cordY];
+    if (cordX < 0 || cordX > line.size()) return "";
+    
+    // Find word boundaries
+    int start = cordX;
+    while (start > 0 && line[start - 1] != ' ') {
+        start--;
+    }
+    
+    int end = cordX;
+    while (end < line.size() && line[end] != ' ') {
+        end++;
+    }
+    
+    return line.substr(start, end - start);
+}
+
 
 
 
