@@ -192,6 +192,10 @@ void fillInVecPosCords(std::vector<posCords> &vec, std::vector<std::string> &buf
             pos = buffer[y].find(searchString, pos + searchString.size());
         }
     }
+    // remove first item
+    if (!vec.empty()){
+        vec.erase(vec.begin());
+    }
 }
 
 void searchOverlay(std::vector<std::string>& buffer, int& cursorX, int& cursorY, bool& searchActive , std::string& searchTerm,
@@ -338,6 +342,27 @@ posCords suggestSearch(std::string startString, std::vector<std::string> &buffer
     return {false, -1, -1};
 }
 
+void clearLine(int lineNum){
+    //clears a line without moving the cursor
+    move(lineNum, 0);
+    clrtoeol();
+}
+
+void emptySearchOverlay(std::string searchTerm){
+    // get current cursor position
+    int funccursorX, funccursorY;
+    getyx(stdscr, funccursorY, funccursorX);
+    int searchRow = LINES - 2;
+    
+    clearLine(searchRow);
+    move(searchRow, 0);
+    attron(COLOR_PAIR(100));
+    
+    mvprintw(searchRow, 0, "Search: %s", searchTerm.c_str());
+    attroff(COLOR_PAIR(100));
+    refresh();
+    move(funccursorY, funccursorX);
+}
 
 std::string getWordFromCords(int cordX,int cordY, std::vector<std::string> &buffer){
     if (cordY < 0 || cordY >= buffer.size()) return "";
@@ -357,9 +382,6 @@ std::string getWordFromCords(int cordX,int cordY, std::vector<std::string> &buff
     
     return line.substr(start, end - start);
 }
-
-
-
 
 void warnQuitWithUnsavedChanges() {
     while (true) {

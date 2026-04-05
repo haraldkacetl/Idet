@@ -1053,7 +1053,7 @@ int main(int argc, char* argv[]) {
         draw(cursorY, cursorX, rowOffset, filename, lineNumberScheme, contentScheme, selectionActive, unsavedChanges, colOffset, inlineSuggestionNPredict, multiFileMode, fileList, activeBufferIndex);
         if (activeSearch) {
             debugWrite("Searching through results...");
-
+            emptySearchOverlay(searchTerm);
             int ch = waitForKeyPress(10, 27);
             debugWrite("Key pressed during search: " + std::to_string(ch));
             if (ch == 10) {
@@ -1714,7 +1714,7 @@ int main(int argc, char* argv[]) {
                 }
                 break;
             }
-            case 270:
+            case 6:
                 searchOverlay(buffer, cursorX, cursorY, activeSearch, searchTerm, SearchLastFoundX, SearchLastFoundY, searchResults);
                 debugWrite("got results in Vec: " + posCordsVecToString(searchResults));
                 break;
