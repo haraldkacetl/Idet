@@ -1054,9 +1054,10 @@ int main(int argc, char* argv[]) {
         if (activeSearch) {
             debugWrite("Searching through results...");
 
-            int ch = waitForKeyPress(KEY_ENTER, 27);
-
-            if (ch == KEY_ENTER) {
+            int ch = waitForKeyPress(10, 27);
+            debugWrite("Key pressed during search: " + std::to_string(ch));
+            if (ch == 10) {
+                debugWrite("Enter pressed, moving through results");
                 if (!searchResults.empty()) {
                     if (searchcount >= searchResults.size()) {
                         searchcount = 0; 
