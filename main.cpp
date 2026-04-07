@@ -84,13 +84,16 @@ bool inlineSuggestionExists = false;
 bool allowInlineSuggestion = true;
 bool autoSuggestionTriggered = false;
 
-void detectLanguage(std::vector<std::string>& buffer, std::string detectedLang){
+void detectLanguage(std::vector<std::string>& buffer, std::string& detectedLang){
     std::string firstLine = buffer[0];
-    if (firstLine == "#!/bin/bash" || firstLine == "#!/bin/sh"){
+    if (stringContainsString(firstLine, "#!/bin/bash")|| stringContainsString(firstLine, "#!/bin/sh")){
         
         detectedLang = "bash";
     }
     debugWrite("first Line:"+ buffer[0]);
+    if (detectedLang != ""){
+        debugWrite("Detected language: " + detectedLang);
+    }
 }
 
 
