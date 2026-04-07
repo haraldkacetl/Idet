@@ -7,7 +7,7 @@ Simple terminal text editor.
 sudo chmod a+x ./installer.sh
 ./installer.sh
 ```
-## Manual install:\
+## Manual install:
 Install dependencies:
 ```bash
 sudo apt install libncurses-dev
