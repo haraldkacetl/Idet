@@ -362,12 +362,19 @@ void showHelp() {
     erase();  // clear the screen
 
     // Turn on color
-    attron(COLOR_PAIR(lineNumberScheme));
+    //attron(COLOR_PAIR(lineNumberScheme));
 
     // Print help text
-    mvprintw(1, 0, "help");
-    mvprintw(2, 0, "help");
+    mvprintw(0, 0, "Idet Editor - Help");
+    mvprintw(2, 0, "strg + s to save");
     mvprintw(3, 0, "strg + c to copy");
+    mvprintw(4, 0, "strg + v to paste");
+    mvprintw(5, 0, "strg + f to search");
+    mvprintw(6, 0, "strg + q to quit");
+    mvprintw(7, 0, "F1 to open help");
+    mvprintw(8, 0, "F7 to open AI settings");
+    mvprintw(10, 0, "Use --multifile to open mutliple files");    
+    mvprintw(11, 0, "strg + f2/f3 to switch between files in multifile mode");
 
     // Turn off color
     attroff(COLOR_PAIR(lineNumberScheme));
