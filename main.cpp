@@ -1243,7 +1243,7 @@ int main(int argc, char* argv[]) {
                         debugWrite("No next buffer to switch to");
                         break;
                     }
-            case 290:
+            case 291:
                 debugWrite("CTRL+Tab pressed - Switch to next buffer with active buffer index: " + std::to_string(activeBufferIndex));
                     if (multiFileMode && activeBufferIndex < inactiveBuffer.size() - 1) {
                         changeActiveBuffer(inactiveBuffer,buffer, activeBufferIndex, activeBufferIndex + 1);
@@ -1271,7 +1271,7 @@ int main(int argc, char* argv[]) {
                         debugWrite("No previous buffer to switch to");
                         break;
                     }
-            case 291:
+            case 290:
                 debugWrite("CTRL+Shift+Tab pressed - Switch to previous buffer with active buffer index: " + std::to_string(activeBufferIndex));
                     if (multiFileMode && activeBufferIndex > 0) {
                         changeActiveBuffer(inactiveBuffer,buffer, activeBufferIndex,activeBufferIndex - 1);
