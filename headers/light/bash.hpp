@@ -149,11 +149,30 @@ std::vector<std::string> bashOperators = {
 std::vector<std::string> customCommandsBuiltIn;
 std::vector<std::string> inScriptDefinitions;
 
-// Track comment positions per line: {lineNum, startPos}
+
 std::vector<std::pair<int, int>> commentPositions;
 
+void initializeBashCommandsBuiltInOnly() {
+    
+    customCommandsBuiltIn = builtInCommands;
+}
+
+void loadAllCommandsAsync() {
+    
+    std::vector<std::string> allSystemCommands;
+    getAllCommands(allSystemCommands);
+    
+    
+    for (const auto& cmd : allSystemCommands) {
+        if (std::find(customCommandsBuiltIn.begin(), customCommandsBuiltIn.end(), cmd) == customCommandsBuiltIn.end()) {
+            customCommandsBuiltIn.push_back(cmd);
+        }
+    }
+}
+
 void initializeBashCommands() {
-    getAllCommands(customCommandsBuiltIn);
+    initializeBashCommandsBuiltInOnly();
+    loadAllCommandsAsync();
 }
 
 bool isOperator(const std::string& word) {

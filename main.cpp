@@ -1078,7 +1078,10 @@ int main(int argc, char* argv[]) {
         }
         debugWrite("Files to load: " + strVecToString(fileList));
         filename = fileList[0]; // set first file as main buffer file
-        loadInfileElements(fileElementsBuffer, filename);
+        if(multiFileMode == true){
+            loadInfileElements(fileElementsBuffer, filename);
+        }
+        
     }
 
     if (!debugTTY.empty()) {
@@ -1137,19 +1140,22 @@ int main(int argc, char* argv[]) {
     init_pair(4, COLOR_YELLOW, COLOR_BLACK); // alternate content
 
     init_pair(10, COLOR_CYAN, COLOR_BLUE);
-    init_pair(11, COLOR_GREEN, COLOR_BLACK);  // bash commands - green
+    init_pair(11, COLOR_BLUE, COLOR_BLACK);  // bash commands - green
     init_pair(12, COLOR_CYAN, COLOR_BLACK);   // bash keywords - cyan
     init_pair(13, COLOR_YELLOW, COLOR_BLACK); // script definitions - yellow
     init_pair(14, COLOR_MAGENTA, COLOR_BLACK); // operators - magenta
-    init_pair(15, COLOR_WHITE, COLOR_BLACK); // comments - white (will be rendered as comments)
+    init_pair(15, COLOR_GREEN, COLOR_BLACK); // comments - white (will be rendered as comments)
     init_pair(100, COLOR_WHITE,COLOR_BLACK); 
     init_pair(110, COLOR_BLACK,COLOR_WHITE);
     raw();
     keypad(stdscr, TRUE);
     noecho();
     
-    // Start background thread to load bash commands for syntax highlighting
-    std::thread commandLoader([]{ initializeBashCommands(); });
+    // Load built-in commands immediately for instant syntax highlighting
+    initializeBashCommandsBuiltInOnly();
+    
+    // Start background thread to load all system commands (expensive on slow systems)
+    std::thread commandLoader([]{ loadAllCommandsAsync(); });
     commandLoader.detach();
     nodelay(stdscr, TRUE);
 
@@ -1163,7 +1169,10 @@ int main(int argc, char* argv[]) {
     // Initialize lastEditTime to current time
     auto initTime = std::chrono::system_clock::now();
     lastEditTime = std::chrono::system_clock::to_time_t(initTime);
-    SetInfileElements(fileElementsBuffer, activeBufferIndex);
+    if(multiFileMode){
+        SetInfileElements(fileElementsBuffer, activeBufferIndex);
+    }
+    
     while (true) {
         // Scroll logic
         int maxVisibleRows = LINES - 2;
