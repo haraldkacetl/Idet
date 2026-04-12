@@ -1327,7 +1327,7 @@ int main(int argc, char* argv[]) {
                 lineNumberScheme = (lineNumberScheme == 1) ? 2 : 1;
                 contentScheme    = (contentScheme == 3) ? 4 : 3;
                 break;
-            case 9: {
+            case 0: {
                 if (inlineSuggestionExists == false){
                     debugWrite("Tab pressed - Triggering AI Completion");
                     std::vector<std::string> vectorBeforetxt;
