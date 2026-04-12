@@ -1327,6 +1327,15 @@ int main(int argc, char* argv[]) {
                 lineNumberScheme = (lineNumberScheme == 1) ? 2 : 1;
                 contentScheme    = (contentScheme == 3) ? 4 : 3;
                 break;
+            case 9:
+                // TAB adds 4 spaces
+                {
+                    std::string editString = buffer[cursorY];
+                    editString.insert(cursorX, 4, ' '); 
+                    buffer[cursorY] = editString;
+                    cursorX += 4; 
+                }
+                break; 
             case 0: {
                 if (inlineSuggestionExists == false){
                     debugWrite("Tab pressed - Triggering AI Completion");
