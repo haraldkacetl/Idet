@@ -1123,6 +1123,7 @@ int main(int argc, char* argv[]) {
             std::string handlingFile = fileList[i];
             if (isDirectory(handlingFile)){
                 std::cerr << "Provided Filename is a Directory and can not be opened: " + handlingFile + "\n";
+                return 1;
             }
             std::vector<std::string> tmpFileBuffer;
             loadFile(handlingFile, tmpFileBuffer);
