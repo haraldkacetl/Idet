@@ -1074,7 +1074,10 @@ int main(int argc, char* argv[]) {
         }
         
     }
-
+    if (isDirectory(filename)){
+        std::cerr << "Provided Filename is a Directory and can not be opened: " + filename + "\n";
+        return 1;
+    }
     if (!debugTTY.empty()) {
     debugOut.open(debugTTY);
     if (!debugOut.is_open()) {
@@ -1109,7 +1112,11 @@ int main(int argc, char* argv[]) {
 
         inactiveBuffer.push_back(emptyBuffer); // main buffer
         for (int i = 1; i < fileList.size(); i++) {
+            
             std::string handlingFile = fileList[i];
+            if (isDirectory(handlingFile)){
+                std::cerr << "Provided Filename is a Directory and can not be opened: " + handlingFile + "\n";
+            }
             std::vector<std::string> tmpFileBuffer;
             loadFile(handlingFile, tmpFileBuffer);
             inactiveBuffer.push_back(tmpFileBuffer);
@@ -1267,7 +1274,7 @@ int main(int argc, char* argv[]) {
                 break;
             case 19: // CTRL+S
                 debugWrite("CTRL+S pressed - Saving file");
-                saveFile(argv[1]);
+                saveFile(filename);
                 break;
             case CTRL_KEY('z'):
                 undo(cursorX, cursorY);

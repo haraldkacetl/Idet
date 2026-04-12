@@ -678,3 +678,10 @@ std::string tolowerString(const std::string& str) {
                    [](unsigned char c) { return std::tolower(c); });
     return result;
 }
+bool isDirectory(std::string filename) {
+    struct stat buffer;
+    if (stat(filename.c_str(), &buffer) != 0) {
+        return false; 
+    }
+    return S_ISDIR(buffer.st_mode); 
+}
