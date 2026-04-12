@@ -642,29 +642,6 @@ void appendCacheActionBuffer(const std::vector<std::string>& oldBuffer, const st
     }
 }
 
-void drawAISettings(std::string authToken, std::string llamaCompletionHost, std::string llamaCompletionNPredict, std::string ollamaModel , std::string AiProvider, int inlineSuggestionNPredict, int AUTO_SUGGESTION_DELAY){
-    erase();  // clear the screen
-
-    // Turn on color
-    attron(COLOR_PAIR(lineNumberScheme));
-
-    // Print AI settings
-    mvprintw(1, 0, "AI Provider: %s", AiProvider.c_str());
-    mvprintw(2, 0, "Auth Token: %s", authToken.empty() ? "(none)" : "(set)");
-    mvprintw(3, 0, "AI Host: %s", llamaCompletionHost.c_str());
-    mvprintw(4, 0, "AI n_predict: %s", llamaCompletionNPredict.c_str());
-    mvprintw(5, 0, "AI Model (only Ollama): %s", ollamaModel.c_str());
-    mvprintw(6, 0, "Inline Suggestion Tokens: %d", inlineSuggestionNPredict);
-    mvprintw(7, 0, "Auto Suggestion Delay: %d seconds", AUTO_SUGGESTION_DELAY);
-
-    // Turn off color
-    attroff(COLOR_PAIR(lineNumberScheme));
-
-    // Refresh to show changes
-    refresh();
-
-}
-
 void displayAISettings(int cursorY, int cursorX, int& rowOffset, const std::string& filename,int lineNumberScheme, int contentScheme, bool selectionActive,bool unsavedChanges, int& colOffset, std::string authToken, std::string llamaCompletionHost, std::string llamaCompletionNPredict, std::string ollamaModel , std::string AiProvider, int inlineSuggestionNPredict, int AUTO_SUGGESTION_DELAY){
     int selectedSetting = 0;
     const int NUM_SETTINGS = 7;
