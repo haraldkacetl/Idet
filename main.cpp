@@ -20,7 +20,7 @@
 #include "headers/functions.h"
 
 
-const std::string version = "0.0.0";
+const std::string version = "0.0.1";
 std::ofstream debugOut;
 
 void debugWrite(const std::string& msg) {
@@ -399,7 +399,7 @@ void showHelp() {
     mvprintw(11, 0, "Shift + arrowkeys to select text");
     mvprintw(12, 0, "Use --multifile to open mutliple files");    
     mvprintw(13, 0, "strg + f2/f3 to switch between files in multifile mode");
-    mvprintw(15, 0, "Version: v0.1.2-alpha");
+    mvprintw(15, 0, ("Version: " + version).c_str());
 
     // Turn off color
     attroff(COLOR_PAIR(lineNumberScheme));
