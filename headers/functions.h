@@ -497,13 +497,6 @@ int NdirectspacesBeforeNum(std::string line, int cursorX) {
     for (int i = cursorX - 1; i >= 0 && line[i] == ' '; i--) {
         spaceCount++;
     }
-    
-    for (int i = 0; i < cursorX - spaceCount; i++) {
-        if (line[i] != ' ') {
-            return 0; 
-        }
-    }
-    
     return spaceCount;
 }
 std::string getWordSelectionRight(const std::string rightString) {
