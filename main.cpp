@@ -282,14 +282,14 @@ void loadFile(const std::string& filename, std::vector<std::string>& targetBuffe
         debugWrite("file does not exist");
         targetBuffer.clear();
         targetBuffer.emplace_back();
-        lastModifiedTime = 0;
+        lastModifiedTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         return;
     }
 
     std::ifstream file(filename);
     if (!file) {
         targetBuffer.clear();
-        lastModifiedTime = 0;
+        lastModifiedTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         return;
     }
 
