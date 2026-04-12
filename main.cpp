@@ -68,6 +68,7 @@ std::vector<posCords> searchResults;
 int searchcount = 0;
 std::string detectedLang = "";
 std::vector<fileElements> fileElementsBuffer;
+int tabSpaces = 4;
 
 // AI Vars
 std::string modelPath = "/var/models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf";
@@ -712,7 +713,7 @@ void displayAISettings(int cursorY, int cursorX, int& rowOffset, const std::stri
             } else if (settingsCh == 27) { // Esc
                 editingMode = false;
                 editBuffer = "";
-            } else if (settingsCh == 127 || settingsCh == KEY_BACKSPACE) { // Backspace
+            } else if (settingsCh == 127 || settingsCh == KEY_BACKSPACE) { 
                 if (!editBuffer.empty()) {
                     editBuffer.pop_back();
                 }
@@ -1328,14 +1329,16 @@ int main(int argc, char* argv[]) {
                 contentScheme    = (contentScheme == 3) ? 4 : 3;
                 break;
             case 9:
-                // TAB adds 4 spaces
+                // TAB adds spaces
                 {
-                    std::string editString = buffer[cursorY];
-                    editString.insert(cursorX, 4, ' '); 
-                    buffer[cursorY] = editString;
-                    cursorX += 4; 
+                    std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
+                    buffer[cursorY].insert(bytePos, tabSpaces, ' ');
+                    cursorX += tabSpaces;
+                    unsavedChanges = true;
+                    showInlineSuggestion = false;
+                    inlineSuggestionExists = false;
                 }
-                break; 
+                break;
             case 0: {
                 if (inlineSuggestionExists == false){
                     debugWrite("Tab pressed - Triggering AI Completion");
@@ -1831,11 +1834,24 @@ int main(int argc, char* argv[]) {
             case 127: {
                 showInlineSuggestion = false;
                 inlineSuggestionExists = false;
+                unsavedChanges = true;
                 if (cursorX > 0) {
-                    std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
-                    std::size_t prevBytePos = char_to_byte_index(buffer[cursorY], cursorX - 1);
-                    buffer[cursorY].erase(prevBytePos, bytePos - prevBytePos);
-                    cursorX--;
+                    
+                    int spacesBeforeCursor = NdirectspacesBeforeNum(buffer[cursorY], cursorX);
+                    int deleteCount = 1; 
+                    
+                    
+                    if (spacesBeforeCursor > 0 && spacesBeforeCursor % tabSpaces == 0) {
+                        deleteCount = tabSpaces;
+                    }
+                    
+                    
+                    for (int i = 0; i < deleteCount && cursorX > 0; i++) {
+                        std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
+                        std::size_t prevBytePos = char_to_byte_index(buffer[cursorY], cursorX - 1);
+                        buffer[cursorY].erase(prevBytePos, bytePos - prevBytePos);
+                        cursorX--;
+                    }
                 } else if (cursorY > 0) {
                     cursorX = getUtf8StrLen(buffer[cursorY - 1]);
                     buffer[cursorY - 1] += buffer[cursorY];

@@ -446,6 +446,28 @@ void switchStartEnd(int& selStartX, int& selEndX) {
     std::swap(selStartX, selEndX);
 }
 
+std::string utf8substr(std::string string, int start, int end) {
+    int byteStart = 0;
+    int byteEnd = 0;
+    int charCount = 0;
+    for (int i = 0; i < string.length(); i++) {
+        if (charCount == start) {
+            byteStart = i;
+        }
+        if (charCount == end) {
+            byteEnd = i;
+            break;
+        }
+        if ((string[i] & 0xC0) != 0x80) {
+            charCount++;
+        }
+    }
+    if (charCount == end || byteEnd == 0) {
+        byteEnd = string.length();
+    }
+    
+    return string.substr(byteStart, byteEnd - byteStart);
+}
 
 int getUtf8CharLenReverse(std::string string_before){
     if (string_before.empty()) return 0;
@@ -457,7 +479,33 @@ int getUtf8CharLenReverse(std::string string_before){
     return 1;                                 // invalid, treat as 1 byte
 }
 
-
+bool NdirectspacesBefore(std::string line, int cursorX, int numSpaces) {
+    
+    if (cursorX < numSpaces) {
+        return false;
+    }
+    
+    for (int i = cursorX - numSpaces; i < cursorX; i++) {
+        if (line[i] != ' ') {
+            return false;
+        }
+    }
+    return true;
+}
+int NdirectspacesBeforeNum(std::string line, int cursorX) {
+    int spaceCount = 0;
+    for (int i = cursorX - 1; i >= 0 && line[i] == ' '; i--) {
+        spaceCount++;
+    }
+    
+    for (int i = 0; i < cursorX - spaceCount; i++) {
+        if (line[i] != ' ') {
+            return 0; 
+        }
+    }
+    
+    return spaceCount;
+}
 std::string getWordSelectionRight(const std::string rightString) {
     std::string wordRight = "";
 
