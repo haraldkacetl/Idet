@@ -35,7 +35,7 @@ public:
     LlamaClient(LlamaClient&&) noexcept = default;
     LlamaClient& operator=(LlamaClient&&) noexcept = default;
 
-    // ✅ ONLY DECLARATION HERE
+    // ONLY DECLARATION HERE
     bool load_model(const std::string& model_path, int n_ctx = 2048);
 
     std::string complete_text(const std::string& prompt,
@@ -56,5 +56,4 @@ private:
     std::vector<llama_token> tokenize(const std::string& text, bool add_special);
     std::string token_to_piece(llama_token token);
 };
-
 #endif

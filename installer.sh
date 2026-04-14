@@ -6,8 +6,10 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 REPO_URL="https://github.com/idetor/Idet.git"
 INSTALL_DIR="."
-read -rp "DO you want to: Update/Install from repo/Install from downloaded? (update/install/install-downloaded) " CHOICE
-if [[ "$CHOICE" == "update" ]]; then
+echo "Chose installation method:"
+echo "Install from downloaded/Install from repo(might not work)/Update?"
+read -rp "Chose: (install/install-repo/update) i/ir/u: " CHOICE
+if [[ "$CHOICE" == "update" || "$CHOICE" == "u" || -z "$CHOICE" ]]; then
   echo "Updating from repo..."
   
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -19,7 +21,7 @@ if [[ "$CHOICE" == "update" ]]; then
   chmod a+x idet
   cp -f idet /usr/local/bin/
   echo "Installation complete. Run 'idet' or './idet' to start the editor."
-elif [[ "$CHOICE" == "install" ]]; then
+elif [[ "$CHOICE" == "install-repo" || "$CHOICE" == "ir" ]]; then
   echo "Installing from repo..."
   # Create install directory if needed
   mkdir -p "$INSTALL_DIR"
@@ -40,7 +42,7 @@ elif [[ "$CHOICE" == "install" ]]; then
   chmod +x idet
   cp -f idet /usr/local/bin/
   echo "Installation complete. Run 'idet' to start the editor."
-elif [[ "$CHOICE" == "install-downloaded" ]]; then
+elif [[ "$CHOICE" == "install" || "$CHOICE" == "i" ]]; then
   echo "Installing from downloaded files..."
   echo "Installing dependencies..."
   apt update

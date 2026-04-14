@@ -20,7 +20,7 @@
 #include "headers/functions.h"
 
 
-const std::string version = "0.0.1";
+const std::string version = "0.1.3-alpha";
 std::ofstream debugOut;
 
 void debugWrite(const std::string& msg) {
