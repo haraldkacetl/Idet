@@ -124,8 +124,12 @@ void SetInfileElements(std::vector<fileElements>& fileElementsBuffer, int Index 
     cursorY = fileElementsBuffer[Index].cursorY;
 }
 
-void detectLanguage(std::vector<std::string>& buffer, std::string& detectedLang){
-    std::string firstLine = buffer[0];
+void detectLanguage(std::vector<std::string>& buffer, std::string& detectedLang, std::string filename){
+    if (endswith(filename, ".sh")){
+        detectedLang = "bash";
+        return;
+    }
+    std::string firstLine = buffer[0];    
     if (stringContainsString(firstLine, "#!/bin/bash")|| stringContainsString(firstLine, "#!/bin/sh")){
         
         detectedLang = "bash";
@@ -1225,7 +1229,7 @@ int main(int argc, char* argv[]) {
         }
     }
     // detect lang
-    detectLanguage(buffer, detectedLang);
+    detectLanguage(buffer, detectedLang, filename);
 
 
     // Initialize ncurses

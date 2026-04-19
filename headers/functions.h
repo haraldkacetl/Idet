@@ -89,15 +89,13 @@ inline cacheAction createDiff(
         commonStart++;
     }
     
-    // Always set affectedStartLine to where changes begin
+    
     diff.affectedStartLine = commonStart;
     
-    // Collect removed lines from old buffer
     for (size_t i = commonStart; i < oldBuffer.size(); ++i) {
         diff.removedLines.push_back(oldBuffer[i]);
     }
     
-    // Collect inserted lines from new buffer
     for (size_t i = commonStart; i < newBuffer.size(); ++i) {
         diff.insertedLines.push_back(newBuffer[i]);
     }
@@ -108,24 +106,15 @@ inline cacheAction createDiff(
 
 inline void applyDiff(std::vector<std::string>& buffer, const cacheAction& diff) {
     int lineNum = diff.affectedStartLine;
-    
-    // Ensure buffer has enough lines before erasing
-    // Pad with empty strings if necessary
     while ((int)buffer.size() < lineNum) {
         buffer.push_back("");
     }
-    
-    // Erase from affected line to end
     if (lineNum < (int)buffer.size()) {
         buffer.erase(buffer.begin() + lineNum, buffer.end());
     }
-    
-    // Append the new inserted lines
     for (const auto& line : diff.insertedLines) {
         buffer.push_back(line);
     }
-    
-    // Ensure buffer is never empty
     if (buffer.empty()) {
         buffer.push_back("");
     }
@@ -183,6 +172,12 @@ std::string getWordFromCords(std::string lineContent , posCords cords){
     return toSpace(fromPosString);
 }
 
+bool endswith(std::string string, std::string endString) {
+    if (endString.length() > string.length()) {
+        return false;
+    }
+    return string.compare(string.length() - endString.length(), endString.length(), endString) == 0;
+}
 
 
 
