@@ -10,6 +10,8 @@
 #include <nlohmann/json.hpp>
 #include <string_view>
 #include <iostream>
+#include <cstdlib>
+
 //#include "light/bash.hpp"
 
 
@@ -51,6 +53,17 @@ struct tabOverlayParams {
     bool needsUpdate = true;
 };
 
+std::string expandPath(const std::string& path) {
+
+    if (!path.empty() && path[0] == '~') {
+        const char* home = std::getenv("HOME");
+        if (home) {
+            return std::string(home) + path.substr(1);
+        }
+    }
+    return path;
+}
+
 std::string fileElementsElementToString(fileElements FileElement) {
     std::string returnMessage;
     returnMessage.append("lastModified : " + std::to_string(FileElement.lastModified) + "\n");
@@ -63,7 +76,6 @@ std::string fileElementsElementToString(fileElements FileElement) {
     returnMessage.append("cursorY : " + std::to_string(FileElement.cursorY) + "\n");
     return returnMessage;
 }
-
 
 inline cacheAction createDiff(
     const std::vector<std::string>& oldBuffer,
@@ -103,7 +115,6 @@ inline cacheAction createDiff(
     return diff;
 }
 
-
 inline void applyDiff(std::vector<std::string>& buffer, const cacheAction& diff) {
     int lineNum = diff.affectedStartLine;
     while ((int)buffer.size() < lineNum) {
@@ -126,6 +137,7 @@ struct posCords {
     int y;
     bool afterAlso;
 };
+
 struct closeXPos{
     bool hasPos;
     int xPos;
@@ -148,7 +160,6 @@ std::string beforeCursor(std::string lineContent, int cursorX) {
     int length = cursorX - startPos;
     return lineContent.substr(startPos, length);
 }
-
 
 std::string toSpace(std::string lineString){
     std::string constructBackString = "";
@@ -179,8 +190,6 @@ bool endswith(std::string string, std::string endString) {
     return string.compare(string.length() - endString.length(), endString.length(), endString) == 0;
 }
 
-
-
 closeXPos getClosestPosCordsX(std::string lineString, std::string compareString, int ignoreNFirst = 0, int getNPos = 0){
     // can also check for multiple position by ignoring first n found positions and returning the next one - for now only return first position
     // checks if compareString is in lineString
@@ -204,6 +213,7 @@ closeXPos getClosestPosCordsX(std::string lineString, std::string compareString,
     }
     return {false, -1};
 }
+
 posCords findInBuffer(std::vector<std::string> &buffer, std::string compareString, int ignoreNFirst = 0, int getNPos = 0){
     for (int y = ignoreNFirst; y < buffer.size(); y++){
         closeXPos xPos = getClosestPosCordsX(buffer[y], compareString, ignoreNFirst, getNPos);
@@ -214,7 +224,6 @@ posCords findInBuffer(std::vector<std::string> &buffer, std::string compareStrin
     return {false, -1 , -1};
 }
 
-// Find the Nth occurrence of a string starting from a given position
 posCords findNextInBuffer(std::vector<std::string> &buffer, std::string compareString, int startY, int startX) {
     // Start searching from startY and startX
     for (int y = startY; y < buffer.size(); y++) {
@@ -246,8 +255,6 @@ int waitOnKeyPress(){
     }
 }
 
-
-// Find the last occurrence of a string in buffer
 posCords findLastInBuffer(std::vector<std::string> &buffer, std::string compareString) {
     for (int y = buffer.size() - 1; y >= 0; y--) {
         size_t pos = buffer[y].rfind(compareString);
@@ -257,11 +264,13 @@ posCords findLastInBuffer(std::vector<std::string> &buffer, std::string compareS
     }
     return {false, -1, -1};
 }
+
 struct colorPair {
     int pairNum;
     int fgColor;
     int bgColor;
 };
+
 int waitForKeyPress(int key1, int key2) {
     int ch;
     while (true) {
@@ -271,10 +280,12 @@ int waitForKeyPress(int key1, int key2) {
         }
     }
 }
+
 std::string posCordsToString(posCords cords){
     if (!cords.exists) return "Not found";
     return "X: " + std::to_string(cords.x) + " Y: " + std::to_string(cords.y);
 }
+
 std::string posCordsVecToString(std::vector<posCords> cordsVec){
     std::string result = "";
     for (const auto& cords : cordsVec) {
@@ -282,6 +293,7 @@ std::string posCordsVecToString(std::vector<posCords> cordsVec){
     }
     return result.empty() ? "No positions found" : result;
 }
+
 void fillInVecPosCords(std::vector<posCords> &vec, std::vector<std::string> &buffer, std::string searchString){
     for (int y = 0; y < buffer.size(); y++){
         size_t pos = buffer[y].find(searchString);
@@ -556,6 +568,7 @@ bool NdirectspacesBefore(std::string line, int cursorX, int numSpaces) {
     }
     return true;
 }
+
 int NdirectspacesBeforeNum(const std::string& line, int cursorX) {
     
     int bytePos = 0;
@@ -575,6 +588,7 @@ int NdirectspacesBeforeNum(const std::string& line, int cursorX) {
     
     return spaceCount;
 }
+
 std::string getWordSelectionRight(const std::string rightString) {
     std::string wordRight = "";
 
@@ -603,7 +617,6 @@ std::string subtractStringLeft(const std::string fullString, int subtraction) {
     return fullString.substr(subtraction);
 }
 
-
 std::string getWordSelectionLeft(const std::string& lineContent) {
     if (lineContent.empty()) return "";
     
@@ -626,6 +639,7 @@ std::string getWordSelectionLeft(const std::string& lineContent) {
     }
     return wordLeft;
 }
+
 std::string subtractStringRight(const std::string& lineContent, int cursorXPos) {
     if (cursorXPos < 0 || cursorXPos > (int)lineContent.size()) {
         return lineContent; // invalid position, return original
@@ -633,7 +647,6 @@ std::string subtractStringRight(const std::string& lineContent, int cursorXPos) 
     
     return lineContent.substr(0, cursorXPos);
 }
-
 
 int getUtf8StrLen(const std::string& str) {
     int len = 0;
@@ -655,8 +668,6 @@ int getUtf8StrLen(const std::string& str) {
     return len;
 }
 
-
-// plain join (returns embedded newlines)
 std::string joinVecLines(const std::vector<std::string>& arr) {
     std::string out;
     out.reserve(arr.size() * 16);
@@ -667,7 +678,6 @@ std::string joinVecLines(const std::vector<std::string>& arr) {
     return out;
 }
 
-// JSON-escape a string so it can be embedded as a JSON string value
 std::string escapeForJson(const std::string &s) {
     std::ostringstream o;
     for (unsigned char c : s) {
@@ -692,11 +702,11 @@ std::string escapeForJson(const std::string &s) {
     }
     return o.str();
 }
+
 std::string getStingFromVec(const std::vector<std::string>& inArray){
     // Return raw string without JSON escaping - let nlohmann::json handle it
     return joinVecLines(inArray);
 }
-
 using json = nlohmann::json;
 
 std::string strVecToString(const std::vector<std::string>& vec) {
@@ -714,54 +724,157 @@ std::string jsonToString(const json& j) {
     return j.dump();
 }   
 
-
 class ConfigLoader {
 private:
     json data;
 
-    json sort_json(const json& input) {
-        if (input.is_object()) {
-            std::map<std::string, json> sorted_map;
-            // Insert into map (automatically sorts keys)
-            for (auto& [key, value] : input.items()) {
-                sorted_map[key] = sort_json(value);
+    std::string trim(const std::string& str) {
+        size_t start = str.find_first_not_of(" \t\r\n");
+        if (start == std::string::npos) return "";
+        size_t end = str.find_last_not_of(" \t\r\n");
+        return str.substr(start, end - start + 1);
+    }
+
+    std::string removeComment(const std::string& line) {
+        size_t commentPos = line.find('#');
+        if (commentPos != std::string::npos) {
+            return trim(line.substr(0, commentPos));
+        }
+        return trim(line);
+    }
+
+    std::pair<std::string, std::string> parseLine(const std::string& line) {
+        std::string cleaned = removeComment(line);
+        
+        if (cleaned.empty()) {
+            return {"", ""};
+        }
+
+        size_t delimPos = cleaned.find('=');
+        if (delimPos == std::string::npos) {
+            throw std::runtime_error("Invalid config format: missing '=' in line: " + line);
+        }
+
+        std::string key = trim(cleaned.substr(0, delimPos));
+        std::string value = trim(cleaned.substr(delimPos + 1));
+
+        if (key.empty()) {
+            throw std::runtime_error("Invalid config format: empty key in line: " + line);
+        }
+
+        return {key, value};
+    }
+
+    json parseValue(const std::string& value) {
+        if (value == "true") return true;
+        if (value == "false") return false;
+        if (value == "null") return json();
+
+        try {
+            size_t idx;
+            long long intVal = std::stoll(value, &idx);
+            if (idx == value.length()) {
+                return intVal;
             }
-            // Convert back to json object
+        } catch (...) {}
+
+
+        try {
+            size_t idx;
+            double floatVal = std::stod(value, &idx);
+            if (idx == value.length()) {
+                return floatVal;
+            }
+        } catch (...) {}
+
+        return value;
+    }
+
+
+
+    json sortJson(const json& input) {
+        if (input.is_object()) {
+            std::map<std::string, json> sortedMap;
+            for (auto& [key, value] : input.items()) {
+                sortedMap[key] = sortJson(value);
+            }
             json result;
-            for (auto& [key, value] : sorted_map) {
+            for (auto& [key, value] : sortedMap) {
                 result[key] = value;
             }
-
             return result;
         }
         else if (input.is_array()) {
             json result = json::array();
             for (const auto& item : input) {
-                result.push_back(sort_json(item));
+                result.push_back(sortJson(item));
             }
             return result;
         }
-        return input; // primitive types
+        return input;
     }
+
 public:
+
     ConfigLoader(const std::string& filepath) {
         std::ifstream file(filepath);
         if (!file.is_open()) {
-            throw std::runtime_error("Could not open config file");
+            throw std::runtime_error("Could not open config file: " + filepath);
         }
-        json raw;
-        file >> raw;
-        data = sort_json(raw);
+
+        json tempData;
+        std::string line;
+        int lineNumber = 0;
+
+        while (std::getline(file, line)) {
+            lineNumber++;
+            std::string cleaned = removeComment(line);
+            
+
+            if (cleaned.empty()) {
+                continue;
+            }
+
+            try {
+                auto [key, value] = parseLine(line);
+                if (!key.empty()) {
+                    tempData[key] = parseValue(value);
+                }
+            } catch (const std::exception& e) {
+                throw std::runtime_error(
+                    std::string(e.what()) + " (line " + std::to_string(lineNumber) + ")"
+                );
+            }
+        }
+
+        file.close();
+        data = sortJson(tempData);
     }
+
+
     json get() const {
         return data;
     }
+
+
     void print() const {
         std::cout << data.dump(4) << std::endl;
     }
+
+
+    json get(const std::string& key) const {
+        if (data.contains(key)) {
+            return data[key];
+        }
+        return json();
+    }
+
+
+    bool has(const std::string& key) const {
+        return data.contains(key);
+    }
 };
 
-// UTF-8 utility: Get the byte length of a UTF-8 character at position pos
 inline int getUtf8CharLen(const std::string& str, size_t pos) {
     if (pos >= str.size()) return 0;
     unsigned char c = static_cast<unsigned char>(str[pos]);
@@ -772,7 +885,6 @@ inline int getUtf8CharLen(const std::string& str, size_t pos) {
     return 1;                                 // invalid, treat as 1 byte
 }
 
-// UTF-8 utility: Find the start position of the UTF-8 character containing byte at pos
 inline size_t getUtf8CharStart(const std::string& str, size_t pos) {
     if (pos > str.size()) pos = str.size();
     while (pos > 0) {
@@ -788,16 +900,13 @@ bool stringContainsString(std::string string , std::string containString){
     return string.find(containString) != std::string::npos;
 }
 
-
-// NOTE: colordraw is deprecated - use draw() function in main.cpp instead which now includes syntax highlighting
-
-
 std::string tolowerString(const std::string& str) {
     std::string result = str;
     std::transform(result.begin(), result.end(), result.begin(),
                    [](unsigned char c) { return std::tolower(c); });
     return result;
 }
+
 bool isDirectory(std::string filename) {
     struct stat buffer;
     if (stat(filename.c_str(), &buffer) != 0) {

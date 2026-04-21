@@ -20,7 +20,7 @@
 #include "headers/functions.h"
 
 
-const std::string version = "0.1.4-alpha";
+const std::string version = "0.1.5-alpha";
 std::ofstream debugOut;
 
 void debugWrite(const std::string& msg) {
@@ -49,7 +49,7 @@ int lineNumberScheme = 1; // 1 or 2
 int contentScheme = 3;    // 3 or 4
 bool unsavedChanges = false;
 bool createNewFile = true;
-std::string configPath = "~/.config/idet/config.json";
+std::string configPath = expandPath("~/.config/idet/config.json");
 int lastEditTime = 0;
 const size_t DEBUG_MAX = 10000;
 std::string filename;
