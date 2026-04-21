@@ -14,6 +14,12 @@
 
 //#include "light/bash.hpp"
 
+struct FileProperties{
+    int lastModifiedTime;
+    bool unsavedChanges;
+    int savedCacheIndex;
+
+};
 
 struct fileElements {
     int lastModified;
@@ -1091,15 +1097,7 @@ static std::wstring utf8_to_wstring(const std::string &s) {
     }
 }
 
-void debugWrite(std::ofstream& out, const std::string& msg) {
-    if (!out.is_open()) return;
 
-    if (msg.size() <= DEBUG_MAX) {
-        out << msg;
-    } else {
-        out << msg.substr(0, DEBUG_MAX);
-    }
-}
 
 bool checkFileExistance(const std::string& filePath) {
     std::ifstream file(filePath);
@@ -1113,7 +1111,7 @@ void createNewFileFunc(const std::string &filename) {
     }
 }
 
-void loadFile(const std::string& filename, std::vector<std::string>& targetBuffer = buffer) {
+void loadFile(const std::string& filename, std::vector<std::string>& targetBuffer, std::vector<std::string>& initialFileBuffer, int& lastModifiedTime) {
     if (!checkFileExistance(filename)) {
         debugWrite("file does not exist");
         targetBuffer.clear();
@@ -1147,7 +1145,9 @@ void loadFile(const std::string& filename, std::vector<std::string>& targetBuffe
     }
 }
 
-void saveFile(const std::string& filename ) {
+void saveFile(const std::string& filename , int& lastModifiedTime, bool& unsavedChanges,
+    std::vector<std::string>& initialFileBuffer, int& savedCacheIndex, std::vector<std::string>& buffer,
+    int& cacheIndex) {
     //createNewFileFunc(filename);
     debugWrite("Saving file: " + filename);
     if (checkFileExistance(filename) == false){
@@ -1162,7 +1162,7 @@ void saveFile(const std::string& filename ) {
     savedCacheIndex = cacheIndex; // Track the cache state when file is saved
 }
 
-void copyClipboard(int startY , int endY){
+void copyClipboard(int startY , int endY, int& selStartY, int& selStartX, int& selEndX, int& selEndY, std::vector<std::string>& buffer, std::string& clipboard){
             for (int y = startY; y <= endY; y++) {
                 int lineStartX = (y == selStartY) ? std::min(selStartX, selEndX) : 0;
                 int lineEndX   = (y == selEndY) ? std::max(selStartX, selEndX) : buffer[y].size();
@@ -1172,7 +1172,7 @@ void copyClipboard(int startY , int endY){
             debugWrite("copied to clipboard: " + clipboard);
 }
 
-void pasteClipboard(int& cursorY, int& cursorX, std::vector<std::string>& buffer) {
+void pasteClipboard(int& cursorY, int& cursorX, std::vector<std::string>& buffer, std::string& clipboard){
     if (clipboard.empty()) return;
 
     size_t prev = 0, pos;
@@ -1215,7 +1215,7 @@ std::string formatTime(int time) {
     return std::string(buffer);
 }
 
-void showHelp() {
+void showHelp(std::string version, int lineNumberScheme) {
     erase();  // clear the screen
 
     // Turn on color
@@ -1259,8 +1259,12 @@ void tabOverlay(tabOverlayParams& tabOverlayParamsIn);
 void draw(int cursorY, int cursorX, int& rowOffset, 
     const std::string& filename,int lineNumberScheme, 
     int contentScheme, bool selectionActive,bool unsavedChanges, 
-    int& colOffset, int inlineSuggestionNPredict = 0 , bool multiFileMode = false ,
-    std::vector<std::string> fileList = std::vector<std::string>() , int activeBufferIndex = 0)
+    int& colOffset, int inlineSuggestionNPredict , bool multiFileMode,
+    std::vector<std::string> fileList, int activeBufferIndex, std::string detectedLang,
+    std::vector<std::string>& buffer, int& selStartX, int& selStartY,
+    int& selEndX, int& selEndY, bool& showInlineSuggestion,
+    int lastModifiedTime, bool tabOverlayActive, tabOverlayParams tabParams,
+    std::vector<std::string> inlineBuffer, int inlineBufferPosX, int inlineBufferPosY)
 {
 erase();
 if(detectedLang == "bash"){

@@ -16,11 +16,6 @@
 #include "headers/light/bash.hpp"
 #include <sys/stat.h>
 //#include "headers/LlamaClient.hpp"
-#include "headers/networkAIApi.hpp"
-#include "headers/editorFunctions.h"
-
-
-const std::string version = "0.1.5-alpha";
 std::ofstream debugOut;
 
 void debugWrite(const std::string& msg) {
@@ -29,6 +24,14 @@ void debugWrite(const std::string& msg) {
         debugOut.flush();
     }
 }
+
+
+#include "headers/networkAIApi.hpp"
+#include "headers/editorFunctions.h"
+
+
+const std::string version = "0.1.5-alpha";
+
 
 #define CTRL_KEY(k) ((k) & 0x1f)
 
@@ -96,7 +99,15 @@ bool allowInlineSuggestion = true;
 bool autoSuggestionTriggered = false;
 
 
+void debugWrite(std::ofstream& out, const std::string& msg) {
+    if (!out.is_open()) return;
 
+    if (msg.size() <= DEBUG_MAX) {
+        out << msg;
+    } else {
+        out << msg.substr(0, DEBUG_MAX);
+    }
+}
 
 
 int main(int argc, char* argv[]) {
@@ -216,13 +227,13 @@ int main(int argc, char* argv[]) {
     }
     debugWrite("Loading File: " + filename);
     if (checkFileExistance(filename)){
-        loadFile(filename);
+        loadFile(filename, buffer, initialFileBuffer, lastModifiedTime);
     }
     else {
 
         if (createNewFile == true){
             //createNewFileFunc(argv[1]);
-            loadFile(filename);
+            loadFile(filename, buffer , initialFileBuffer, lastModifiedTime);
         }
     }
     
@@ -240,7 +251,7 @@ int main(int argc, char* argv[]) {
                 return 1;
             }
             std::vector<std::string> tmpFileBuffer;
-            loadFile(handlingFile, tmpFileBuffer);
+            loadFile(handlingFile, tmpFileBuffer, initialFileBuffer, lastModifiedTime);
             inactiveBuffer.push_back(tmpFileBuffer);
         }
         
@@ -318,7 +329,15 @@ int main(int argc, char* argv[]) {
             debugWrite("Tab overlay parameters updated - cursor: (" + std::to_string(cursorX) + ", " + std::to_string(cursorY) + ")");
         }
         
-        draw(cursorY, cursorX, rowOffset, filename, lineNumberScheme, contentScheme, selectionActive, unsavedChanges, colOffset, inlineSuggestionNPredict, multiFileMode, fileList, activeBufferIndex);
+        draw(cursorY, cursorX, rowOffset,
+            filename, lineNumberScheme, contentScheme,
+            selectionActive, unsavedChanges, colOffset,
+            inlineSuggestionNPredict, multiFileMode, fileList,
+            activeBufferIndex, detectedLang, buffer,
+            selStartX, selStartY, selEndX,
+            selEndY, showInlineSuggestion, lastModifiedTime,
+            tabOverlayActive, tabParams, inlineBuffer,
+            inlineBufferPosX, inlineBufferPosY);
         if (activeSearch) {
             debugWrite("Searching through results...");
             emptySearchOverlay(searchTerm);
@@ -438,7 +457,7 @@ int main(int argc, char* argv[]) {
                 break;
             case 19: // CTRL+S
                 debugWrite("CTRL+S pressed - Saving file");
-                saveFile(filename);
+                saveFile(filename, lastModifiedTime, unsavedChanges, initialFileBuffer, savedCacheIndex, buffer, cacheIndex);
                 break;
             case CTRL_KEY('z'):
                 undo(cursorX, cursorY, buffer, cacheActionBuffer, cacheIndex, savedCacheIndex);
@@ -875,7 +894,7 @@ int main(int argc, char* argv[]) {
                 }
 
             case KEY_F(1):
-                showHelp();
+                showHelp(version, lineNumberScheme);
                 break;
             case 544:
                 selectionActive = false;
@@ -980,7 +999,7 @@ int main(int argc, char* argv[]) {
                 if (selectionActive) {
                     clipboard.clear();
                     copyClipboard(std::min(selStartY, selEndY),
-                                std::max(selStartY, selEndY));
+                                std::max(selStartY, selEndY), selStartX, selStartY, selEndX, selEndY, buffer, clipboard);
                     debugWrite("Copied to clipboard: " + clipboard);
                     selectionActive = false;
                 }
@@ -989,7 +1008,7 @@ int main(int argc, char* argv[]) {
                 showInlineSuggestion = false;
                 inlineSuggestionExists = false;
                 if (!clipboard.empty()) {
-                    pasteClipboard(cursorY, cursorX, buffer);
+                    pasteClipboard(cursorY, cursorX, buffer, clipboard);
                     debugWrite("Pasted from clipboard at (" +
                             std::to_string(cursorY) + "," +
                             std::to_string(cursorX) + ")");
