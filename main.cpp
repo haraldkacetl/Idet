@@ -20,7 +20,7 @@
 #include "headers/functions.h"
 
 
-const std::string version = "0.1.3-alpha";
+const std::string version = "0.1.4-alpha";
 std::ofstream debugOut;
 
 void debugWrite(const std::string& msg) {
@@ -1327,6 +1327,7 @@ int main(int argc, char* argv[]) {
             getInlineSuggestion(cursorX, cursorY, buffer, maxInlinePromptSize);
             inlineSuggestionExists = true;
             autoSuggestionTriggered = true;
+            detectLanguage(buffer, detectedLang, filename); 
         }
 
         ch = getch();
