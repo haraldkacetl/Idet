@@ -20,7 +20,12 @@ class SelectionElements {
         int selEndX;
         int selEndY;
         bool selectionActive;
-        
+    SelectionElements()
+        : selStartX(0),
+          selStartY(0),
+          selEndX(0),
+          selEndY(0),
+          selectionActive(false) {}
 };
 
 class AiProps{

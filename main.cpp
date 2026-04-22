@@ -45,9 +45,12 @@ std::vector<std::string> initialFileBuffer;
 std::vector<std::string> inlineBuffer;
 int inlineBufferPosX = 0;
 int inlineBufferPosY = 0;
+
+SelectionElements selection;
 bool selectionActive = false;
 int selStartY = 0, selStartX = 0;
 int selEndY = 0, selEndX = 0;
+
 std::string clipboard;
 bool unsavedChanges = false;
 bool createNewFile = true;
