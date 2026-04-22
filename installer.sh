@@ -19,7 +19,8 @@ if [[ "$CHOICE" == "update" || "$CHOICE" == "u" || -z "$CHOICE" ]]; then
   cd "$SCRIPT_DIR" || exit 1
   git pull
   echo "Creating config"
-  touch config.json
+  mkdir -p ~/.config/idet
+  touch ~/.config/idet/config
   echo "Compiling main.cpp to idet..."    
   g++ -std=c++20 main.cpp -lncursesw -lcurl -o idet
   
