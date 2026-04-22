@@ -333,34 +333,34 @@ int main(int argc, char* argv[]) {
             showInlineSuggestion, lastModifiedTime,
             tabOverlayActive, tabParams, inlineBuffer,
             inlineBufferPosX, inlineBufferPosY, selection);
-        if (search.activeSearch) {
+        if (search.active) {
             debugWrite("Searching through results...");
-            emptySearchOverlay(search.searchTerm);
+            emptySearchOverlay(search.term);
             int ch = waitOnKeyPress();
             debugWrite("Key pressed during search: " + std::to_string(ch));
             if (ch == 10) {
                 debugWrite("Enter pressed, moving through results");
-                if (!search.searchResults.empty()) {
-                    if (search.searchcount >= search.searchResults.size()) {
-                        search.searchcount = 0; 
+                if (!search.results.empty()) {
+                    if (search.count >= search.results.size()) {
+                        search.count = 0; 
                     }
 
-                    cursorX = search.searchResults[search.searchcount].x;
-                    cursorY = search.searchResults[search.searchcount].y;
-                    search.searchcount++;
+                    cursorX = search.results[search.count].x;
+                    cursorY = search.results[search.count].y;
+                    search.count++;
                 }
                 continue;
             }
             else if (ch == 27) { // ESC
-                search.activeSearch = false;
-                search.searchResults.clear();
-                search.searchcount = 0;
+                search.active = false;
+                search.results.clear();
+                search.count = 0;
                 continue;
             }
             else{
-                search.activeSearch = false;
-                search.searchResults.clear();
-                search.searchcount = 0;
+                search.active = false;
+                search.results.clear();
+                search.count = 0;
                 continue;
             }
         }
@@ -1136,7 +1136,7 @@ int main(int argc, char* argv[]) {
             }
             case 6:
                 searchOverlay(buffer, cursorX, cursorY, search);
-                debugWrite("got results in Vec: " + posCordsVecToString(search.searchResults));
+                debugWrite("got results in Vec: " + posCordsVecToString(search.results));
                 break;
             default: {
                 // Handle selection deletion first if selection is active

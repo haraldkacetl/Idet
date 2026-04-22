@@ -45,14 +45,28 @@ class SelectionElements {
 
 class SearchElement {
     public:
+        bool active; //
+        std::string term; //
+        int lastX; //
+        int lastY; //
+        int count; //
+        std::vector<posCords> results; 
+        // legacy
         bool activeSearch;
         std::string searchTerm;
         int SearchLastFoundX;
         int SearchLastFoundY;
         int searchcount;
         std::vector<posCords> searchResults;
+
     SearchElement()
-        : activeSearch(false),
+        : active(false),
+          term(""),
+          lastX(-1),
+          lastY(-1),
+          count(0),
+          //legacy
+          activeSearch(false),
           searchTerm(""),
           SearchLastFoundX(-1),
           SearchLastFoundY(-1),
@@ -374,7 +388,7 @@ void fillInVecPosCords(std::vector<posCords> &vec, std::vector<std::string> &buf
 }
 
 void searchOverlay(std::vector<std::string>& buffer, int& cursorX, int& cursorY, SearchElement& search) {
-    search.activeSearch = true;
+    search.active = true;
     int searchRow = LINES - 2;
     bool firstAction = true;
     std::string searchSuggestion = "";
@@ -386,97 +400,97 @@ void searchOverlay(std::vector<std::string>& buffer, int& cursorX, int& cursorY,
         clrtoeol();
         // make suggestion gray
         attron(COLOR_PAIR(100));
-        mvprintw(searchRow, 0, "Search: %s", search.searchTerm.c_str());
+        mvprintw(searchRow, 0, "Search: %s", search.term.c_str());
         attroff(COLOR_PAIR(100));
         attron(COLOR_PAIR(110));
-        mvprintw(searchRow, 8 + search.searchTerm.size(), "%s", searchSuggestion.c_str());
+        mvprintw(searchRow, 8 + search.term.size(), "%s", searchSuggestion.c_str());
         attroff(COLOR_PAIR(110));
         refresh();
         int ch = getch();
         
         if (ch == 27) {
-            search.activeSearch = false;
+            search.active = false;
             break; // ESC key 
         } 
         //also handle backspace
         else if (ch == KEY_BACKSPACE || ch == 263 ) {
             if (!firstAction){
-                if (!search.searchTerm.empty()) {
-                    search.searchTerm.pop_back();
+                if (!search.term.empty()) {
+                    search.term.pop_back();
                     searchSuggestion = "";
-                    search.SearchLastFoundX = -1;
-                    search.SearchLastFoundY = -1;
+                    search.lastX = -1;
+                    search.lastY = -1;
                 }
             }else{
-                search.searchTerm = "";
+                search.term = "";
                 continue;
             }
 
         } else if (ch == '\n' || ch == '\r' || ch == 10 || ch == 13 || ch == KEY_ENTER) {
             
-            if (!search.searchTerm.empty()) {
+            if (!search.term.empty()) {
                 posCords cords;
-                if (search.SearchLastFoundY >= 0 && search.SearchLastFoundX >= 0) {
+                if (search.lastY >= 0 && search.lastX >= 0) {
                     
-                    cords = findNextInBuffer(buffer, search.searchTerm, search.SearchLastFoundY, search.SearchLastFoundX + (int)search.searchTerm.length());
+                    cords = findNextInBuffer(buffer, search.term, search.lastY, search.lastX + (int)search.term.length());
                 } else {
                     
-                    cords = findInBuffer(buffer, search.searchTerm);
+                    cords = findInBuffer(buffer, search.term);
                 }
                 
                 if (cords.exists) {
                     cursorX = cords.x;
                     cursorY = cords.y;
-                    search.SearchLastFoundY = cords.y;
-                    search.SearchLastFoundX = cords.x;
+                    search.lastY = cords.y;
+                    search.lastX = cords.x;
                 }
-                fillInVecPosCords(search.searchResults, buffer, search.searchTerm);
+                fillInVecPosCords(search.results, buffer, search.term);
                 break;
             }
             break;
         } else if (ch == KEY_END) {
             
-            if (!search.searchTerm.empty()) {
-                posCords cords = findLastInBuffer(buffer, search.searchTerm);
+            if (!search.term.empty()) {
+                posCords cords = findLastInBuffer(buffer, search.term);
                 if (cords.exists) {
                     cursorX = cords.x;
                     cursorY = cords.y;
-                    search.SearchLastFoundY = cords.y;
-                    search.SearchLastFoundX = cords.x;
+                    search.lastY = cords.y;
+                    search.lastX = cords.x;
                 }
             }
         } else if (ch == KEY_HOME) {
             
-            if (!search.searchTerm.empty()) {
-                posCords cords = findInBuffer(buffer, search.searchTerm);
+            if (!search.term.empty()) {
+                posCords cords = findInBuffer(buffer, search.term);
                 if (cords.exists) {
                     cursorX = cords.x;
                     cursorY = cords.y;
-                    search.SearchLastFoundY = cords.y;
-                    search.SearchLastFoundX = cords.x;
+                    search.lastY = cords.y;
+                    search.lastX = cords.x;
                 }
             }
         } else if (ch == KEY_NPAGE) {
             
-            if (!search.searchTerm.empty() && search.SearchLastFoundY >= 0) {
-                int nextSearchY = search.SearchLastFoundY + (LINES / 2);
-                posCords cords = findNextInBuffer(buffer, search.searchTerm, nextSearchY, 0);
+            if (!search.term.empty() && search.lastY >= 0) {
+                int nextSearchY = search.lastY + (LINES / 2);
+                posCords cords = findNextInBuffer(buffer, search.term, nextSearchY, 0);
                 if (cords.exists) {
                     cursorX = cords.x;
                     cursorY = cords.y;
-                    search.SearchLastFoundY = cords.y;
-                    search.SearchLastFoundX = cords.x;
+                    search.lastY = cords.y;
+                    search.lastX = cords.x;
                 }
             }
         } else if (isprint(ch)) {
-            search.searchTerm += static_cast<char>(ch);
-            search.SearchLastFoundY = -1;
-            search.SearchLastFoundX = -1;
+            search.term += static_cast<char>(ch);
+            search.lastY = -1;
+            search.lastX = -1;
         }
         //also utf-8 characters
         else if (ch >= 128 && ch <= 255) {
-            search.SearchLastFoundY = -1;
-            search.SearchLastFoundX = -1;
+            search.lastY = -1;
+            search.lastX = -1;
             std::string utf8_char;
             utf8_char += static_cast<char>(ch);
             int remaining_bytes = 0;
@@ -490,22 +504,22 @@ void searchOverlay(std::vector<std::string>& buffer, int& cursorX, int& cursorY,
                     utf8_char += static_cast<char>(next_byte);
                 }
             }
-            search.searchTerm += utf8_char;
+            search.term += utf8_char;
         }
         // TAB - accept suggestion
         else if (ch == '\t') {
             if (!searchSuggestion.empty()) {
-                search.searchTerm += searchSuggestion;
+                search.term += searchSuggestion;
                 searchSuggestion = "";
-                search.SearchLastFoundY = -1;
-                search.SearchLastFoundX = -1;
+                search.lastY = -1;
+                search.lastX = -1;
             }
         }
         // get suggestion
-        if (!search.searchTerm.empty()) {
-            posCords cords = findInBuffer(buffer, search.searchTerm);
+        if (!search.term.empty()) {
+            posCords cords = findInBuffer(buffer, search.term);
             if (cords.exists) {
-                searchSuggestion = buffer[cords.y].substr(cords.x + search.searchTerm.size());
+                searchSuggestion = buffer[cords.y].substr(cords.x + search.term.size());
             } else {
                 searchSuggestion = "";
             }
