@@ -7,3 +7,4 @@ llama.cpp/
 idet
 templateconf.json
 .gitignore
+config.json
