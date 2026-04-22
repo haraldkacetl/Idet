@@ -20,8 +20,12 @@ class AiProps{
         std::string llamaCompletionHost;
         std::string llamaCompletionNPredict;
         std::string ollamaModel;
+        std::string modelPath;
+        int maxInlinePromptSize;
         int inlineSuggestionNPredict;
         int AUTO_SUGGESTION_DELAY;
+        
+        
 
     AiProps() 
         : AiProvider("llamacpp"),
@@ -30,6 +34,8 @@ class AiProps{
           llamaCompletionNPredict("5"),
           ollamaModel("gpt-oss:20b"),
           inlineSuggestionNPredict(5),
+          modelPath("/var/models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf"),
+          maxInlinePromptSize(10000),
           AUTO_SUGGESTION_DELAY(3) {}
 };
 

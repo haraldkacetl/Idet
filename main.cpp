@@ -85,15 +85,15 @@ int tabSpaces = 4;
 
 AiProps AiSettings;
 
-std::string modelPath = "/var/models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf";
-std::string authToken = "";
-std::string llamaCompletionHost = "http://localhost:8080"; //URL of llamacpp
-std::string llamaCompletionNPredict = "5"; // how many tokens to generate with TAB
-std::string ollamaModel = "gpt-oss:20b";
-std::string AiProvider = "llamacpp";
-int inlineSuggestionNPredict = 5;
-int AUTO_SUGGESTION_DELAY = 3;
-int maxInlinePromptSize = 10000;
+//std::string modelPath = "/var/models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf";
+//std::string authToken = "";
+//std::string llamaCompletionHost = "http://localhost:8080"; //URL of llamacpp
+//std::string llamaCompletionNPredict = "5"; // how many tokens to generate with TAB
+//std::string ollamaModel = "gpt-oss:20b";
+//std::string AiProvider = "llamacpp";
+//int AiSettings.inlineSuggestionNPredict = 5;
+//int AiSettings.AUTO_SUGGESTION_DELAY = 3;
+//int maxInlinePromptSize = 10000;
 bool llamaInit = false;
 bool modelLoaded = false;
 bool showInlineSuggestion = false;
@@ -151,21 +151,21 @@ int main(int argc, char* argv[]) {
             return 0;
         }
         else if (arg == "-p" || arg == "--provider") {
-            if (i + 1 < argc) AiProvider = argv[++i];
+            if (i + 1 < argc) AiSettings.AiProvider = argv[++i];
         }
         else if (arg == "-m" || arg == "--model") {
-            if (i + 1 < argc) modelPath = argv[++i];
+            if (i + 1 < argc) AiSettings.modelPath = argv[++i];
         }
         else if (arg == "-a" || arg == "--auth") {
-            if (i + 1 < argc) authToken = argv[++i];
+            if (i + 1 < argc) AiSettings.authToken = argv[++i];
         }
         else if (arg == "--ollamaModel") {
-            if (i + 1 < argc) ollamaModel = argv[++i];
+            if (i + 1 < argc) AiSettings.ollamaModel = argv[++i];
         }
         else if (arg == "-i" || arg == "--inline") {
             if (i + 1 < argc) {
                 try {
-                    inlineSuggestionNPredict = std::stoi(argv[++i]);
+                    AiSettings.inlineSuggestionNPredict = std::stoi(argv[++i]);
                 } catch (...) {}
             }
         }
@@ -173,13 +173,13 @@ int main(int argc, char* argv[]) {
             if (i + 1 < argc) {
                 std::string val = argv[++i];
                 if (val.rfind("http", 0) == 0)
-                    llamaCompletionHost = val;
+                    AiSettings.llamaCompletionHost = val;
                 else
-                    llamaCompletionHost = "http://" + val;
+                    AiSettings.llamaCompletionHost = "http://" + val;
             }
         }
         else if (arg == "-n" || arg == "--npredict") {
-            if (i + 1 < argc) llamaCompletionNPredict = argv[++i];
+            if (i + 1 < argc) AiSettings.llamaCompletionNPredict = argv[++i];
         }
         else if (arg == "--noNewFile") {
             createNewFile = false;
@@ -335,7 +335,7 @@ int main(int argc, char* argv[]) {
         draw(cursorY, cursorX, rowOffset,
             filename, lineNumberScheme, contentScheme,
             selectionActive, unsavedChanges, colOffset,
-            inlineSuggestionNPredict, multiFileMode, fileList,
+            AiSettings.inlineSuggestionNPredict, multiFileMode, fileList,
             activeBufferIndex, detectedLang, buffer,
             selStartX, selStartY, selEndX,
             selEndY, showInlineSuggestion, lastModifiedTime,
@@ -376,10 +376,10 @@ int main(int argc, char* argv[]) {
         std::time_t timeNow = std::chrono::system_clock::to_time_t(now);
         int timeSinceLastEdit = static_cast<int>(timeNow - lastEditTime);
         
-        if (timeSinceLastEdit >= AUTO_SUGGESTION_DELAY && !autoSuggestionTriggered && 
+        if (timeSinceLastEdit >= AiSettings.AUTO_SUGGESTION_DELAY && !autoSuggestionTriggered && 
             !showInlineSuggestion && !inlineSuggestionExists && allowInlineSuggestion) {
             debugWrite("Auto-triggering inline suggestion after " + std::to_string(timeSinceLastEdit) + " seconds");
-            getInlineSuggestion(cursorX, cursorY, buffer, maxInlinePromptSize, AiSettings, inlineBuffer, inlineBufferPosX, inlineBufferPosY, showInlineSuggestion);
+            getInlineSuggestion(cursorX, cursorY, buffer, AiSettings.maxInlinePromptSize, AiSettings, inlineBuffer, inlineBufferPosX, inlineBufferPosY, showInlineSuggestion);
             inlineSuggestionExists = true;
             autoSuggestionTriggered = true;
             detectLanguage(buffer, detectedLang, filename); 
@@ -595,9 +595,9 @@ int main(int argc, char* argv[]) {
                     std::string promptText = getStingFromVec(vectorBeforetxt);
                     debugWrite("promptText: " + promptText);
                     std::string llamaOutput = AiCompletion(promptText,
-                                            (llamaCompletionHost),
-                                            llamaCompletionNPredict,
-                                            [](const std::string& msg){ debugWrite(msg); }, AiProvider, ollamaModel);
+                                            (AiSettings.llamaCompletionHost),
+                                            AiSettings.llamaCompletionNPredict,
+                                            [](const std::string& msg){ debugWrite(msg); }, AiSettings.AiProvider, AiSettings.ollamaModel);
                     debugWrite("got output: " + llamaOutput);
                     for (size_t i = 0; i < llamaOutput.size(); ++i) {
                         char charLlamaOutput = llamaOutput[i];
@@ -983,11 +983,11 @@ int main(int argc, char* argv[]) {
                 
                 continue;
             case 274:
-                inlineSuggestionNPredict++;
+                AiSettings.inlineSuggestionNPredict++;
                 break;
             case 273:
-                if (inlineSuggestionNPredict > 0){
-                    inlineSuggestionNPredict--;
+                if (AiSettings.inlineSuggestionNPredict > 0){
+                    AiSettings.inlineSuggestionNPredict--;
                 }
                 break;
             case 1:
