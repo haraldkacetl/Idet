@@ -53,6 +53,7 @@ std::string clipboard;
 
 SearchElement search;
 
+cursorElement cursor;
 
 std::string detectedLang = "";
 std::vector<fileElements> fileElementsBuffer;
@@ -302,7 +303,7 @@ int main(int argc, char* argv[]) {
     commandLoader.detach();
     nodelay(stdscr, TRUE);
 
-    int cursorX = 0, cursorY = 0;
+
     int rowOffset = 0;
     int colOffset = 0;
     int ch;
@@ -311,21 +312,21 @@ int main(int argc, char* argv[]) {
     auto initTime = std::chrono::system_clock::now();
     lastEditTime = std::chrono::system_clock::to_time_t(initTime);
     if(multiFileMode){
-        SetInfileElements(fileElementsBuffer, activeBufferIndex, lastModifiedTime, unsavedChanges, selection, cursorX, cursorY);
+        SetInfileElements(fileElementsBuffer, activeBufferIndex, lastModifiedTime, unsavedChanges, selection, cursor);
     }
     while (true) {
         inplacementHappened = false;
         int maxVisibleRows = LINES - 2;
-        if (cursorY - rowOffset >= maxVisibleRows) rowOffset = cursorY - maxVisibleRows + 1;
-        if (cursorY - rowOffset < 0) rowOffset = cursorY;
+        if (cursor.Y - rowOffset >= maxVisibleRows) rowOffset = cursor.Y - maxVisibleRows + 1;
+        if (cursor.Y - rowOffset < 0) rowOffset = cursor.Y;
         if (tabOverlayActive && tabParams.exists) {
             tabParams.buffer = buffer;
-            tabParams.cursorX = cursorX;
-            tabParams.cursorY = cursorY;
-            debugWrite("Tab overlay parameters updated - cursor: (" + std::to_string(cursorX) + ", " + std::to_string(cursorY) + ")");
+            tabParams.cursorX = cursor.X;
+            tabParams.cursor.Y = cursor.Y;
+            debugWrite("Tab overlay parameters updated - cursor: (" + std::to_string(cursor.X) + ", " + std::to_string(cursor.Y) + ")");
         }
         
-        draw(cursorY, cursorX, rowOffset,
+        draw(cursor, rowOffset,
             filename, lineNumberScheme, contentScheme,
              unsavedChanges, colOffset,
             AiSettings.inlineSuggestionNPredict, multiFileMode, fileList,
@@ -345,8 +346,8 @@ int main(int argc, char* argv[]) {
                         search.count = 0; 
                     }
 
-                    cursorX = search.results[search.count].x;
-                    cursorY = search.results[search.count].y;
+                    cursor.X = search.results[search.count].x;
+                    cursor.Y = search.results[search.count].y;
                     search.count++;
                 }
                 continue;
@@ -371,7 +372,7 @@ int main(int argc, char* argv[]) {
         if (timeSinceLastEdit >= AiSettings.AUTO_SUGGESTION_DELAY && !autoSuggestionTriggered && 
             !showInlineSuggestion && !inlineSuggestionExists && allowInlineSuggestion) {
             debugWrite("Auto-triggering inline suggestion after " + std::to_string(timeSinceLastEdit) + " seconds");
-            getInlineSuggestion(cursorX, cursorY, buffer, AiSettings.maxInlinePromptSize, AiSettings, inlineBuffer, inlineBufferPosX, inlineBufferPosY, showInlineSuggestion);
+            getInlineSuggestion(cursor, buffer, AiSettings.maxInlinePromptSize, AiSettings, inlineBuffer, inlineBufferPosX, inlineBufferPosY, showInlineSuggestion);
             inlineSuggestionExists = true;
             autoSuggestionTriggered = true;
             detectLanguage(buffer, detectedLang, filename); 
@@ -396,18 +397,18 @@ int main(int argc, char* argv[]) {
             usleep(50000);
             continue;
         }
-        int oldXPos = cursorX;
-        int oldYPos = cursorY;
+        int oldXPos = cursor.X;
+        int oldYPos = cursor.Y;
         
 
         std::vector<std::string> bufferBeforeAction = buffer;
         
         switch (ch) {
             case 4:{
-                if (!buffer.empty() && cursorY >= 0 && cursorY < static_cast<int>(buffer.size())) {
+                if (!buffer.empty() && cursor.Y >= 0 && cursor.Y < static_cast<int>(buffer.size())) {
                     tabParams.buffer = buffer;
-                    tabParams.cursorX = cursorX;
-                    tabParams.cursorY = cursorY;
+                    tabParams.cursor.X = cursor.X;
+                    tabParams.cursor.Y = cursor.Y;
                     tabParams.exists = true;
                     tabParams.needsUpdate = true;  
                     tabOverlayActive = true;
@@ -455,15 +456,15 @@ int main(int argc, char* argv[]) {
                 saveFile(filename, lastModifiedTime, unsavedChanges, initialFileBuffer, savedCacheIndex, buffer, cacheIndex);
                 break;
             case CTRL_KEY('z'):
-                undo(cursorX, cursorY, buffer, cacheActionBuffer, cacheIndex, savedCacheIndex, initialFileBuffer, unsavedChanges);
+                undo(cursor, buffer, cacheActionBuffer, cacheIndex, savedCacheIndex, initialFileBuffer, unsavedChanges);
                 break;
             case CTRL_KEY('y'):
-                redo(cursorX, cursorY, buffer, cacheActionBuffer, cacheIndex, savedCacheIndex, initialFileBuffer, unsavedChanges);
+                redo(cursor, buffer, cacheActionBuffer, cacheIndex, savedCacheIndex, initialFileBuffer, unsavedChanges);
                 break;
             case 569:
                 debugWrite("CTRL+Tab pressed - Switch to next buffer with active buffer index: " + std::to_string(activeBufferIndex));
                     if (multiFileMode && activeBufferIndex < inactiveBuffer.size() - 1) {
-                        changeFileElements(fileElementsBuffer,activeBufferIndex,activeBufferIndex + 1,lastModifiedTime,unsavedChanges, cursorX, cursorY ,selection);
+                        changeFileElements(fileElementsBuffer,activeBufferIndex,activeBufferIndex + 1,lastModifiedTime,unsavedChanges, cursor ,selection);
                         changeActiveBuffer(inactiveBuffer,buffer, activeBufferIndex, activeBufferIndex + 1);
                         filename = fileList[activeBufferIndex];
                         //activeBufferIndex++;
@@ -477,7 +478,7 @@ int main(int argc, char* argv[]) {
             case 291:
                 debugWrite("CTRL+Tab pressed - Switch to next buffer with active buffer index: " + std::to_string(activeBufferIndex));
                     if (multiFileMode && activeBufferIndex < inactiveBuffer.size() - 1) {
-                        changeFileElements(fileElementsBuffer,activeBufferIndex,activeBufferIndex + 1,lastModifiedTime,unsavedChanges, cursorX, cursorY, selection);
+                        changeFileElements(fileElementsBuffer,activeBufferIndex,activeBufferIndex + 1,lastModifiedTime,unsavedChanges, cursor, selection);
                         changeActiveBuffer(inactiveBuffer,buffer, activeBufferIndex, activeBufferIndex + 1);
                         filename = fileList[activeBufferIndex];
                         //activeBufferIndex++;
@@ -491,7 +492,7 @@ int main(int argc, char* argv[]) {
             case 554:
                 debugWrite("CTRL+Shift+Tab pressed - Switch to previous buffer with active buffer index: " + std::to_string(activeBufferIndex));
                     if (multiFileMode && activeBufferIndex > 0) {
-                        changeFileElements(fileElementsBuffer,activeBufferIndex,activeBufferIndex - 1,lastModifiedTime,unsavedChanges, cursorX, cursorY, selection);
+                        changeFileElements(fileElementsBuffer,activeBufferIndex,activeBufferIndex - 1,lastModifiedTime,unsavedChanges, cursor, selection);
                         changeActiveBuffer(inactiveBuffer,buffer, activeBufferIndex,activeBufferIndex - 1);
                         filename = fileList[activeBufferIndex];
                         //activeBufferIndex--;
@@ -505,7 +506,7 @@ int main(int argc, char* argv[]) {
             case 290:
                 debugWrite("CTRL+Shift+Tab pressed - Switch to previous buffer with active buffer index: " + std::to_string(activeBufferIndex));
                     if (multiFileMode && activeBufferIndex > 0) {
-                        changeFileElements(fileElementsBuffer,activeBufferIndex,activeBufferIndex - 1,lastModifiedTime,unsavedChanges, cursorX, cursorY , selection);
+                        changeFileElements(fileElementsBuffer,activeBufferIndex,activeBufferIndex - 1,lastModifiedTime,unsavedChanges, cursor , selection);
                         changeActiveBuffer(inactiveBuffer,buffer, activeBufferIndex,activeBufferIndex - 1);
                         filename = fileList[activeBufferIndex];
                         //activeBufferIndex--;
@@ -530,23 +531,23 @@ int main(int argc, char* argv[]) {
                             const std::string& line = inlineBuffer[i];
                             if (i == 0) {
                                 // First line - insert at current cursor position
-                                if (cursorY >= buffer.size()) {
+                                if (cursor.Y >= buffer.size()) {
                                     buffer.emplace_back("");
                                 }
-                                std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
-                                if (bytePos > buffer[cursorY].size()) {
-                                    buffer[cursorY].resize(bytePos, ' ');
+                                std::size_t bytePos = char_to_byte_index(buffer[cursor.Y], cursor.X);
+                                if (bytePos > buffer[cursor.Y].size()) {
+                                    buffer[cursor.Y].resize(bytePos, ' ');
                                 }
-                                buffer[cursorY].insert(bytePos, line);
-                                cursorX += static_cast<int>(line.size());
+                                buffer[cursor.Y].insert(bytePos, line);
+                                cursor.X += static_cast<int>(line.size());
                             } else {
                                 // Subsequent lines
-                                std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
-                                std::string restOfLine = buffer[cursorY].substr(bytePos);
-                                buffer[cursorY] = buffer[cursorY].substr(0, bytePos);
-                                cursorY++;
-                                buffer.insert(buffer.begin() + cursorY, line + restOfLine);
-                                cursorX = static_cast<int>(line.size());
+                                std::size_t bytePos = char_to_byte_index(buffer[cursor.Y], cursor.X);
+                                std::string restOfLine = buffer[cursor.Y].substr(bytePos);
+                                buffer[cursor.Y] = buffer[cursor.Y].substr(0, bytePos);
+                                cursor.Y++;
+                                buffer.insert(buffer.begin() + cursor.Y, line + restOfLine);
+                                cursor.X = static_cast<int>(line.size());
                             }
                         }
                         unsavedChanges = true;
@@ -555,9 +556,9 @@ int main(int argc, char* argv[]) {
                         inlineBuffer.clear();
                     } else {
                         // No suggestion - insert tab spaces
-                        std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
-                        buffer[cursorY].insert(bytePos, tabSpaces, ' ');
-                        cursorX += tabSpaces;
+                        std::size_t bytePos = char_to_byte_index(buffer[cursor.Y], cursor.X);
+                        buffer[cursor.Y].insert(bytePos, tabSpaces, ' ');
+                        cursor.X += tabSpaces;
                         unsavedChanges = true;
                     }
                 }
@@ -566,15 +567,15 @@ int main(int argc, char* argv[]) {
                 if (inlineSuggestionExists == false){
                     debugWrite("Tab pressed - Triggering AI Completion");
                     std::vector<std::string> vectorBeforetxt;
-                    vectorBeforetxt.reserve(static_cast<size_t>(cursorY) + 1);
-                    int limitLine = std::max(0, cursorY);
+                    vectorBeforetxt.reserve(static_cast<size_t>(cursor.Y) + 1);
+                    int limitLine = std::max(0, cursor.Y);
                     for (int vecLine = 0; vecLine < limitLine && vecLine < static_cast<int>(buffer.size()); ++vecLine) {
                         vectorBeforetxt.push_back(buffer[vecLine]);
                     }
                     std::string charsBefore;
-                    if (cursorY >= 0 && cursorY < static_cast<int>(buffer.size())) {
-                        std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
-                        charsBefore = buffer[cursorY].substr(0, bytePos);
+                    if (cursor.Y >= 0 && cursor.Y < static_cast<int>(buffer.size())) {
+                        std::size_t bytePos = char_to_byte_index(buffer[cursor.Y], cursor.X);
+                        charsBefore = buffer[cursor.Y].substr(0, bytePos);
                     }
                     vectorBeforetxt.push_back(charsBefore);
                     std::string StrVecTxt;
@@ -594,28 +595,28 @@ int main(int argc, char* argv[]) {
                     for (size_t i = 0; i < llamaOutput.size(); ++i) {
                         char charLlamaOutput = llamaOutput[i];
                         if (charLlamaOutput == '\n') {
-                            std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
-                            std::string newLine = buffer[cursorY].substr(bytePos);
-                            buffer[cursorY] = buffer[cursorY].substr(0, bytePos);
-                            buffer.insert(buffer.begin() + cursorY + 1, newLine);
-                            cursorY++;
-                            cursorX = 0;
-                            if (cursorY >= buffer.size()) {
+                            std::size_t bytePos = char_to_byte_index(buffer[cursor.Y], cursor.X);
+                            std::string newLine = buffer[cursor.Y].substr(bytePos);
+                            buffer[cursor.Y] = buffer[cursor.Y].substr(0, bytePos);
+                            buffer.insert(buffer.begin() + cursor.Y + 1, newLine);
+                            cursor.Y++;
+                            cursor.X = 0;
+                            if (cursor.Y >= buffer.size()) {
                                 buffer.emplace_back("");
                             }
-                            cursorX = 0;
+                            cursor.X = 0;
                             continue;
                         }
                         if (charLlamaOutput >= 32 && charLlamaOutput <= 126) {
-                            if (cursorY >= buffer.size()) {
+                            if (cursor.Y >= buffer.size()) {
                                 buffer.emplace_back("");
                             }
-                            std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
-                            if (bytePos > buffer[cursorY].size()) {
-                                buffer[cursorY].resize(bytePos, ' ');
+                            std::size_t bytePos = char_to_byte_index(buffer[cursor.Y], cursor.X);
+                            if (bytePos > buffer[cursor.Y].size()) {
+                                buffer[cursor.Y].resize(bytePos, ' ');
                             }
-                            buffer[cursorY].insert(bytePos, 1, static_cast<char>(charLlamaOutput));
-                            cursorX++;
+                            buffer[cursor.Y].insert(bytePos, 1, static_cast<char>(charLlamaOutput));
+                            cursor.X++;
                             unsavedChanges = true;
                         }
                     }
@@ -631,23 +632,23 @@ int main(int argc, char* argv[]) {
                             
                             if (i == 0) {
                                 // First line - insert at current cursor position
-                                if (cursorY >= buffer.size()) {
+                                if (cursor.Y >= buffer.size()) {
                                     buffer.emplace_back("");
                                 }
-                                std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
-                                if (bytePos > buffer[cursorY].size()) {
-                                    buffer[cursorY].resize(bytePos, ' ');
+                                std::size_t bytePos = char_to_byte_index(buffer[cursor.Y], cursor.X);
+                                if (bytePos > buffer[cursor.Y].size()) {
+                                    buffer[cursor.Y].resize(bytePos, ' ');
                                 }
-                                buffer[cursorY].insert(bytePos, line);
-                                cursorX += static_cast<int>(line.size()); 
+                                buffer[cursor.Y].insert(bytePos, line);
+                                cursor.X += static_cast<int>(line.size()); 
                             } else {
                                 
-                                std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
-                                std::string restOfLine = buffer[cursorY].substr(bytePos);
-                                buffer[cursorY] = buffer[cursorY].substr(0, bytePos);
-                                cursorY++;
-                                buffer.insert(buffer.begin() + cursorY, line + restOfLine);
-                                cursorX = static_cast<int>(line.size()); 
+                                std::size_t bytePos = char_to_byte_index(buffer[cursor.Y], cursor.X);
+                                std::string restOfLine = buffer[cursor.Y].substr(bytePos);
+                                buffer[cursor.Y] = buffer[cursor.Y].substr(0, bytePos);
+                                cursor.Y++;
+                                buffer.insert(buffer.begin() + cursor.Y, line + restOfLine);
+                                cursor.X = static_cast<int>(line.size()); 
                             }
                         }
                         unsavedChanges = true;
@@ -662,30 +663,30 @@ int main(int argc, char* argv[]) {
                 if (!search.active){
                 debugWrite("shift + strg + arrow right");
                 search.active = true;
-                selection.startX = cursorX;
-                selection.startY = cursorY;
-                selection.endY = cursorY;
-                std::string stringAfter = subtractStringLeft(buffer[cursorY], cursorX);
-                debugWrite("cursorY pos: " + std::to_string(cursorY));
-                debugWrite("current line content:" + buffer[cursorY]);
+                selection.startX = cursor.X;
+                selection.startY = cursor.Y;
+                selection.endY = cursor.Y;
+                std::string stringAfter = subtractStringLeft(buffer[cursor.Y], cursor.X);
+                debugWrite("cursor.Y pos: " + std::to_string(cursor.Y));
+                debugWrite("current line content:" + buffer[cursor.Y]);
                 std::string onRight = getWordSelectionRight(stringAfter);
                 
                 debugWrite("OnRight is: " + onRight);
                 int moveRight = getUtf8StrLen(onRight);
-                cursorX += moveRight;
-                selection.endX = cursorX;
+                cursor.X += moveRight;
+                selection.endX = cursor.X;
                 break;
                 }
                 else{
                     debugWrite("shift + strg + arrow right - extending selection");
-                    std::string stringAfter = subtractStringLeft(buffer[cursorY], cursorX);
-                    debugWrite("cursorY pos: " + std::to_string(cursorY));
-                    debugWrite("current line content:" + buffer[cursorY]);
+                    std::string stringAfter = subtractStringLeft(buffer[cursor.Y], cursor.X);
+                    debugWrite("cursor.Y pos: " + std::to_string(cursor.Y));
+                    debugWrite("current line content:" + buffer[cursor.Y]);
                     std::string onRight = getWordSelectionRight(stringAfter);
                     debugWrite("OnRight is: " + onRight);
                     int moveRight = getUtf8StrLen(onRight);
-                    cursorX += moveRight;
-                    selection.endX = cursorX;
+                    cursor.X += moveRight;
+                    selection.endX = cursor.X;
                     debugWrite("selStartX: " + std::to_string(selection.startX) + " selEndX: " + std::to_string(selection.endX));
                     break;
                 }
@@ -694,18 +695,18 @@ int main(int argc, char* argv[]) {
                 if (!search.active){
                 debugWrite("shift + strg + arrow left");
                 search.active = true;
-                selection.startX = cursorX;
-                selection.startY = cursorY;
-                selection.endY = cursorY;
-                std::string stringBefore = subtractStringRight(buffer[cursorY], cursorX);
-                debugWrite("cursorY pos: " + std::to_string(cursorY));
-                debugWrite("current line content:" + buffer[cursorY]);
+                selection.startX = cursor.X;
+                selection.startY = cursor.Y;
+                selection.endY = cursor.Y;
+                std::string stringBefore = subtractStringRight(buffer[cursor.Y], cursor.X);
+                debugWrite("cursor.Y pos: " + std::to_string(cursor.Y));
+                debugWrite("current line content:" + buffer[cursor.Y]);
                 std::string onLeft = getWordSelectionLeft(stringBefore);
                 debugWrite("OnLeft is: " + onLeft);
                 int moveLeft = getUtf8StrLen(onLeft);
-                cursorX -= moveLeft;
-                if (cursorX < 0) cursorX = 0;
-                selection.endX = cursorX;
+                cursor.X -= moveLeft;
+                if (cursor.X < 0) cursor.X = 0;
+                selection.endX = cursor.X;
                 //switchStartEnd(selStartX, selEndX);
                 debugWrite("selStartX: " + std::to_string(selection.startX) + " selEndX: " + std::to_string(selection.endX));
 
@@ -713,15 +714,15 @@ int main(int argc, char* argv[]) {
                 }
                 else{
                     debugWrite("shift + strg + arrow left - extending selection");
-                    std::string stringBefore = subtractStringRight(buffer[cursorY], cursorX);
-                    debugWrite("cursorY pos: " + std::to_string(cursorY));
-                    debugWrite("current line content:" + buffer[cursorY]);
+                    std::string stringBefore = subtractStringRight(buffer[cursor.Y], cursor.X);
+                    debugWrite("cursor.Y pos: " + std::to_string(cursor.Y));
+                    debugWrite("current line content:" + buffer[cursor.Y]);
                     std::string onLeft = getWordSelectionLeft(stringBefore);
                     debugWrite("OnLeft is: " + onLeft);
                     int moveLeft = getUtf8StrLen(onLeft);
-                    cursorX -= moveLeft;
-                    if (cursorX < 0) cursorX = 0;
-                    selection.endX = cursorX;
+                    cursor.X -= moveLeft;
+                    if (cursor.X < 0) cursor.X = 0;
+                    selection.endX = cursor.X;
                     debugWrite("selStartX: " + std::to_string(selection.startX) + " selEndX: " + std::to_string(selection.endX));
                     break;
                 }
@@ -732,20 +733,20 @@ int main(int argc, char* argv[]) {
 
                 if (!search.active) {
                     search.active = true;
-                    selection.startX = cursorX;
-                    selection.startY = cursorY;
+                    selection.startX = cursor.X;
+                    selection.startY = cursor.Y;
                 }
 
-                if (cursorY > 0) {
-                    cursorY--;
-                    if (cursorX > buffer[cursorY].size()) {
-                        cursorX = buffer[cursorY].size();
+                if (cursor.Y > 0) {
+                    cursor.Y--;
+                    if (cursor.X > buffer[cursor.Y].size()) {
+                        cursor.X = buffer[cursor.Y].size();
                     }
                 } else {
-                    cursorX = 0;
+                    cursor.X = 0;
                 }
-                selection.endX = cursorX;
-                selection.endY = cursorY;
+                selection.endX = cursor.X;
+                selection.endY = cursor.Y;
 
                 break;
             case 336:
@@ -754,19 +755,19 @@ int main(int argc, char* argv[]) {
 
                 if (!search.active) {
                     search.active = true;
-                    selection.startX = cursorX;
-                    selection.startY = cursorY;
+                    selection.startX = cursor.X;
+                    selection.startY = cursor.Y;
                 }
-                if (cursorY < buffer.size() - 1) {
-                    cursorY++;
-                    if (cursorX > buffer[cursorY].size()) {
-                        cursorX = buffer[cursorY].size();
+                if (cursor.Y < buffer.size() - 1) {
+                    cursor.Y++;
+                    if (cursor.X > buffer[cursor.Y].size()) {
+                        cursor.X = buffer[cursor.Y].size();
                     }
                 } else {   
-                    cursorX = buffer[cursorY].size();
+                    cursor.X = buffer[cursor.Y].size();
                 }
-                selection.endX = cursorX;
-                selection.endY = cursorY;
+                selection.endX = cursor.X;
+                selection.endY = cursor.Y;
                 break;
             
             case 540:
@@ -774,13 +775,15 @@ int main(int argc, char* argv[]) {
                 debugWrite(search.active ? "shift + end - extending" : "shift + end");
                 if (!search.active){
                     search.active = true;
-                    selection.startX = cursorX;
-                    selection.startY = cursorY;
+                    selection.startX = cursor.X;
+                    selection.startY = cursor.Y;
                 }
-                selection.endX = buffer[-1].size();
-                selection.endY = buffer.size();
-                cursorX = buffer[-1].size();
-                cursorY = buffer.size();
+                if (!buffer.empty()) {
+                    selection.endX = buffer.back().size();
+                    selection.endY = buffer.size() - 1;
+                    cursor.X = buffer.back().size();
+                    cursor.Y = buffer.size() - 1;
+                }
 
                 break;
             case 545:
@@ -788,37 +791,37 @@ int main(int argc, char* argv[]) {
                 debugWrite(search.active ? "shift + home - extending" : "shift + home");
                 if (!search.active){
                     search.active = true;
-                    selection.startX = cursorX;
-                    selection.startY = cursorY;
+                    selection.startX = cursor.X;
+                    selection.startY = cursor.Y;
                 }
                 selection.endX = 0;
                 selection.endY = 0;
-                cursorX = 0;
-                cursorY = 0;
+                cursor.X = 0;
+                cursor.Y = 0;
                 break;
             case 386:
                 // shift + end
                 debugWrite(search.active ? "shift + end - extending" : "shift + end");
                 if (!search.active){
                     search.active = true;
-                    selection.startX = cursorX;
-                    selection.startY = cursorY;
+                    selection.startX = cursor.X;
+                    selection.startY = cursor.Y;
                 }
-                selection.endX = buffer[cursorY].size();
-                selection.endY = cursorY;
-                cursorX = buffer[cursorY].size();
+                selection.endX = buffer[cursor.Y].size();
+                selection.endY = cursor.Y;
+                cursor.X = buffer[cursor.Y].size();
                 break;
             case 391:
                 // shift + home
                 debugWrite(search.active ? "shift + home - extending" : "shift + home");
                 if (!search.active){
                     search.active = true;
-                    selection.startX = cursorX;
-                    selection.startY = cursorY;
+                    selection.startX = cursor.X;
+                    selection.startY = cursor.Y;
                 }
                 selection.endX = 0;
-                selection.endY = cursorY;
-                cursorX = 0;
+                selection.endY = cursor.Y;
+                cursor.X = 0;
                 break;
             case 402:
                 // shift + arrow right
@@ -826,27 +829,27 @@ int main(int argc, char* argv[]) {
                 if (!search.active){
                 debugWrite("shift + arrow right");
                 search.active = true;
-                selection.startX = cursorX;
-                selection.startY = cursorY;
-                selection.endY = cursorY;
-                if (cursorY < buffer.size()) {
-                    std::string stringAfter = subtractStringLeft(buffer[cursorY], cursorX);
+                selection.startX = cursor.X;
+                selection.startY = cursor.Y;
+                selection.endY = cursor.Y;
+                if (cursor.Y < buffer.size()) {
+                    std::string stringAfter = subtractStringLeft(buffer[cursor.Y], cursor.X);
                     if (!stringAfter.empty()) {
                         int charLen = getUtf8CharLen(stringAfter, 0);
-                        cursorX += charLen;
-                        selection.endX = cursorX;
+                        cursor.X += charLen;
+                        selection.endX = cursor.X;
                     }
                 }
                 break;
                 }
                 else{
                     debugWrite("shift + arrow right - extending selection");
-                    if (cursorY < buffer.size()) {
-                        std::string stringAfter = subtractStringLeft(buffer[cursorY], cursorX);
+                    if (cursor.Y < buffer.size()) {
+                        std::string stringAfter = subtractStringLeft(buffer[cursor.Y], cursor.X);
                         if (!stringAfter.empty()) {
                             int charLen = getUtf8CharLen(stringAfter, 0);
-                            cursorX += charLen;
-                            selection.endX = cursorX;
+                            cursor.X += charLen;
+                            selection.endX = cursor.X;
                             debugWrite("selStartX: " + std::to_string(selection.startX) + " selEndX: " + std::to_string(selection.endX));
                         }
                     }
@@ -858,16 +861,16 @@ int main(int argc, char* argv[]) {
                 if (!search.active){
                 debugWrite("shift + arrow left");
                 search.active = true;
-                selection.startX = cursorX;
-                selection.startY = cursorY;
-                selection.endY = cursorY;
-                if (cursorY < buffer.size()) {
-                    std::string stringBefore = subtractStringRight(buffer[cursorY], cursorX);
+                selection.startX = cursor.X;
+                selection.startY = cursor.Y;
+                selection.endY = cursor.Y;
+                if (cursor.Y < buffer.size()) {
+                    std::string stringBefore = subtractStringRight(buffer[cursor.Y], cursor.X);
                     if (!stringBefore.empty()) {
                         int charLen = getUtf8CharLenReverse(stringBefore);
-                        cursorX -= charLen;
-                        if (cursorX < 0) cursorX = 0;
-                        selection.endX = cursorX;
+                        cursor.X -= charLen;
+                        if (cursor.X < 0) cursor.X = 0;
+                        selection.endX = cursor.X;
                         debugWrite("selStartX: " + std::to_string(selection.startX) + " selEndX: " + std::to_string(selection.endX));
                     }
                 }
@@ -875,13 +878,13 @@ int main(int argc, char* argv[]) {
                 }
                 else{
                     debugWrite("shift + arrow left - extending selection");
-                    if (cursorY < buffer.size()) {
-                        std::string stringBefore = subtractStringRight(buffer[cursorY], cursorX);
+                    if (cursor.Y < buffer.size()) {
+                        std::string stringBefore = subtractStringRight(buffer[cursor.Y], cursor.X);
                         if (!stringBefore.empty()) {
                             int charLen = getUtf8CharLenReverse(stringBefore);
-                            cursorX -= charLen;
-                            if (cursorX < 0) cursorX = 0;
-                            selection.endX = cursorX;
+                            cursor.X -= charLen;
+                            if (cursor.X < 0) cursor.X = 0;
+                            selection.endX = cursor.X;
                             debugWrite("selStartX: " + std::to_string(selection.startX) + " selEndX: " + std::to_string(selection.endX));
                         }
                     }
@@ -893,23 +896,23 @@ int main(int argc, char* argv[]) {
                 break;
             case 544:
                 search.active = false;
-                cursorX = 0;
-                cursorY = 0;
+                cursor.X = 0;
+                cursor.Y = 0;
                 break;
             case KEY_F(7):
 
-                displayAISettings(cursorY, cursorX, rowOffset, argv[1], lineNumberScheme, contentScheme, search.active, unsavedChanges, colOffset, AiSettings);
-                cursorX = oldXPos;
-                cursorY = oldYPos;
+                displayAISettings(cursor, rowOffset, argv[1], lineNumberScheme, contentScheme, search.active, unsavedChanges, colOffset, AiSettings);
+                cursor.X = oldXPos;
+                cursor.Y = oldYPos;
                 break;
             case 539:
                 search.active = false;
                 if (!buffer.empty()) {
-                    cursorY = static_cast<int>(buffer.size() - 1);
-                    cursorX = static_cast<int>(buffer.back().size());
+                    cursor.Y = static_cast<int>(buffer.size() - 1);
+                    cursor.X = static_cast<int>(buffer.back().size());
                 } else {
-                    cursorY = 0;
-                    cursorX = 0;
+                    cursor.Y = 0;
+                    cursor.X = 0;
                 }
                 break;
             case 330:
@@ -935,16 +938,16 @@ int main(int argc, char* argv[]) {
                         buffer.erase(buffer.begin() + startY + 1,
                                     buffer.begin() + endY + 1);
                     }
-                    cursorX = startX;
-                    cursorY = startY;
+                    cursor.X = startX;
+                    cursor.Y = startY;
                     search.active = false;
                     unsavedChanges = true;
-                } else if (cursorY >= 0 && cursorY < static_cast<int>(buffer.size())) {
-                    std::string &line = buffer[cursorY];
+                } else if (cursor.Y >= 0 && cursor.Y < static_cast<int>(buffer.size())) {
+                    std::string &line = buffer[cursor.Y];
                     int charCount = getUtf8StrLen(line);
-                    if (cursorX >= 0 && cursorX < charCount) {
+                    if (cursor.X >= 0 && cursor.X < charCount) {
                         // Delete: remove UTF-8 character at cursor
-                        std::size_t bytePos = char_to_byte_index(line, cursorX);
+                        std::size_t bytePos = char_to_byte_index(line, cursor.X);
                         int charLen = getUtf8CharLen(line, bytePos);
                         debugWrite("Char len: " + std::to_string(charLen));
                         line.erase(bytePos, charLen > 0 ? charLen : 1);
@@ -955,8 +958,8 @@ int main(int argc, char* argv[]) {
             case KEY_F(3):
                 if (!search.active) {
                     search.active = true;
-                    selection.startY = selection.endY = cursorY;
-                    selection.startX = selection.endX = cursorX;
+                    selection.startY = selection.endY = cursor.Y;
+                    selection.startX = selection.endX = cursor.X;
                     debugWrite("Selection started at (" +
                             std::to_string(selection.startY) + "," +
                             std::to_string(selection.startX) + ")");
@@ -986,8 +989,10 @@ int main(int argc, char* argv[]) {
                 search.active = true;
                 selection.startX = 0;
                 selection.startY = 0;
-                selection.endX = buffer[buffer.size()].size();
-                selection.endY = buffer.size();
+                if (!buffer.empty()) {
+                    selection.endX = buffer.back().size();
+                    selection.endY = buffer.size() - 1;
+                }
                 continue;
                 break;
             case CTRL_KEY('c'):
@@ -1003,23 +1008,23 @@ int main(int argc, char* argv[]) {
                 showInlineSuggestion = false;
                 inlineSuggestionExists = false;
                 if (!clipboard.empty()) {
-                    pasteClipboard(cursorY, cursorX, buffer, clipboard);
+                    pasteClipboard(cursor.Y, cursor.X, buffer, clipboard);
                     debugWrite("Pasted from clipboard at (" +
-                            std::to_string(cursorY) + "," +
-                            std::to_string(cursorX) + ")");
+                            std::to_string(cursor.Y) + "," +
+                            std::to_string(cursor.X) + ")");
                 }
                 break;
             case CTRL_KEY('k'):
                 showInlineSuggestion = false;
                 inlineSuggestionExists = false;
-                if (cursorY < static_cast<int>(buffer.size())) {
-                    buffer.erase(buffer.begin() + cursorY);
-                    if (cursorY >= static_cast<int>(buffer.size())) cursorY = buffer.size() - 1;
-                    if (cursorY < 0) {
+                if (cursor.Y < static_cast<int>(buffer.size())) {
+                    buffer.erase(buffer.begin() + cursor.Y);
+                    if (cursor.Y >= static_cast<int>(buffer.size())) cursor.Y = buffer.size() - 1;
+                    if (cursor.Y < 0) {
                         buffer.push_back("");
-                        cursorY = 0;
+                        cursor.Y = 0;
                     }
-                    cursorX = 0;
+                    cursor.X = 0;
                     unsavedChanges = true;
                 }
                 break;
@@ -1027,42 +1032,42 @@ int main(int argc, char* argv[]) {
                 debugWrite(strVecToString(customCommandsBuiltIn));
                 break;
             case KEY_UP:
-                if (cursorY > 0) cursorY--;
-                cursorX = std::min(cursorX, getUtf8StrLen(buffer[cursorY]));
+                if (cursor.Y > 0) cursor.Y--;
+                cursor.X = std::min(cursor.X, getUtf8StrLen(buffer[cursor.Y]));
                 showInlineSuggestion = false;
                 inlineSuggestionExists = false;
                 search.active = false;
                 break;
             case KEY_DOWN:
-                if (cursorY < static_cast<int>(buffer.size()) - 1) cursorY++;
+                if (cursor.Y < static_cast<int>(buffer.size()) - 1) cursor.Y++;
                 showInlineSuggestion = false;
                 inlineSuggestionExists = false;
                 search.active = false;
-                cursorX = std::min(cursorX, getUtf8StrLen(buffer[cursorY]));
+                cursor.X = std::min(cursor.X, getUtf8StrLen(buffer[cursor.Y]));
                 break;
             case KEY_LEFT:
-                if (cursorX > 0) cursorX--;
+                if (cursor.X > 0) cursor.X--;
                 showInlineSuggestion = false;
                 inlineSuggestionExists = false;
                 search.active = false;
                 break;
             case KEY_RIGHT: {
-                int charCount = getUtf8StrLen(buffer[cursorY]);
-                if (cursorX < charCount) cursorX++;
+                int charCount = getUtf8StrLen(buffer[cursor.Y]);
+                if (cursor.X < charCount) cursor.X++;
                 showInlineSuggestion = false;
                 inlineSuggestionExists = false;
                 search.active = false;
                 break;
             }
             case KEY_HOME:
-                cursorX = 0;
+                cursor.X = 0;
                 showInlineSuggestion = false;
                 inlineSuggestionExists = false;
                 search.active = false;
                 break;
             case KEY_END: {
                 search.active = false;
-                cursorX = getUtf8StrLen(buffer[cursorY]);
+                cursor.X = getUtf8StrLen(buffer[cursor.Y]);
                 showInlineSuggestion = false;
                 inlineSuggestionExists = false;
                 break;
@@ -1070,12 +1075,12 @@ int main(int argc, char* argv[]) {
             case 10: {
                 showInlineSuggestion = false;
                 inlineSuggestionExists = false;
-                std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
-                std::string newLine = buffer[cursorY].substr(bytePos);
-                buffer[cursorY] = buffer[cursorY].substr(0, bytePos);
-                buffer.insert(buffer.begin() + cursorY + 1, newLine);
-                cursorY++;
-                cursorX = 0;
+                std::size_t bytePos = char_to_byte_index(buffer[cursor.Y], cursor.X);
+                std::string newLine = buffer[cursor.Y].substr(bytePos);
+                buffer[cursor.Y] = buffer[cursor.Y].substr(0, bytePos);
+                buffer.insert(buffer.begin() + cursor.Y + 1, newLine);
+                cursor.Y++;
+                cursor.X = 0;
                 break;
             }
             case KEY_BACKSPACE:
@@ -1106,12 +1111,12 @@ int main(int argc, char* argv[]) {
                         buffer.erase(buffer.begin() + startY + 1,
                                     buffer.begin() + endY + 1);
                     }
-                    cursorX = startX;
-                    cursorY = startY;
+                    cursor.X = startX;
+                    cursor.Y = startY;
                     selection.active = false;
-                } else if (cursorX > 0) {
+                } else if (cursor.X > 0) {
                     
-                    int spacesBeforeCursor = NdirectspacesBeforeNum(buffer[cursorY], cursorX);
+                    int spacesBeforeCursor = NdirectspacesBeforeNum(buffer[cursor.Y], cursor.X);
                     int deleteCount = 1; 
                     
                     
@@ -1120,22 +1125,22 @@ int main(int argc, char* argv[]) {
                     }
                     
                     
-                    for (int i = 0; i < deleteCount && cursorX > 0; i++) {
-                        std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
-                        std::size_t prevBytePos = char_to_byte_index(buffer[cursorY], cursorX - 1);
-                        buffer[cursorY].erase(prevBytePos, bytePos - prevBytePos);
-                        cursorX--;
+                    for (int i = 0; i < deleteCount && cursor.X > 0; i++) {
+                        std::size_t bytePos = char_to_byte_index(buffer[cursor.Y], cursor.X);
+                        std::size_t prevBytePos = char_to_byte_index(buffer[cursor.Y], cursor.X - 1);
+                        buffer[cursor.Y].erase(prevBytePos, bytePos - prevBytePos);
+                        cursor.X--;
                     }
-                } else if (cursorY > 0) {
-                    cursorX = getUtf8StrLen(buffer[cursorY - 1]);
-                    buffer[cursorY - 1] += buffer[cursorY];
-                    buffer.erase(buffer.begin() + cursorY);
-                    cursorY--;
+                } else if (cursor.Y > 0) {
+                    cursor.X = getUtf8StrLen(buffer[cursor.Y - 1]);
+                    buffer[cursor.Y - 1] += buffer[cursor.Y];
+                    buffer.erase(buffer.begin() + cursor.Y);
+                    cursor.Y--;
                 }
                 break;
             }
             case 6:
-                searchOverlay(buffer, cursorX, cursorY, search);
+                searchOverlay(buffer, cursor.X, cursor.Y, search);
                 debugWrite("got results in Vec: " + posCordsVecToString(search.results));
                 break;
             default: {
@@ -1161,8 +1166,8 @@ int main(int argc, char* argv[]) {
                         buffer.erase(buffer.begin() + startY + 1,
                                     buffer.begin() + endY + 1);
                     }
-                    cursorX = startX;
-                    cursorY = startY;
+                    cursor.X = startX;
+                    cursor.Y = startY;
                     search.active = false;
                     inplacementHappened = true;
                     debugWrite("Inplacement Happened" + std::to_string(inplacementHappened));
@@ -1183,32 +1188,32 @@ int main(int argc, char* argv[]) {
                             utf8_char += static_cast<char>(next_byte);
                         }
                     }
-                    if (cursorX > buffer[cursorY].size()) {
-                        buffer[cursorY].resize(cursorX, ' ');
+                    if (cursor.X > buffer[cursor.Y].size()) {
+                        buffer[cursor.Y].resize(cursor.X, ' ');
                     }
-                    std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
-                    buffer[cursorY].insert(bytePos, utf8_char);
-                    cursorX += 1;
+                    std::size_t bytePos = char_to_byte_index(buffer[cursor.Y], cursor.X);
+                    buffer[cursor.Y].insert(bytePos, utf8_char);
+                    cursor.X += 1;
                     unsavedChanges = true;
                     showInlineSuggestion = false;
                     inlineSuggestionExists = false;
                     break;
                 }
                 if (ch >= 32 && ch <= 126) {
-                    std::size_t bytePos = char_to_byte_index(buffer[cursorY], cursorX);
-                    if (bytePos > buffer[cursorY].size()) {
-                        buffer[cursorY].resize(bytePos, ' ');
+                    std::size_t bytePos = char_to_byte_index(buffer[cursor.Y], cursor.X);
+                    if (bytePos > buffer[cursor.Y].size()) {
+                        buffer[cursor.Y].resize(bytePos, ' ');
                     }
                     char charToInsert = static_cast<char>(ch);
-                    buffer[cursorY].insert(bytePos, 1, charToInsert);
-                    cursorX += 1;
+                    buffer[cursor.Y].insert(bytePos, 1, charToInsert);
+                    cursor.X += 1;
                     
                     // Auto-close brackets and quotes
                     if (isOpeningChar(charToInsert)) {
                         char closingChar = getClosingChar(charToInsert);
                         if (closingChar != '\0') {
-                            std::size_t closeBytePos = char_to_byte_index(buffer[cursorY], cursorX);
-                            buffer[cursorY].insert(closeBytePos, 1, closingChar);
+                            std::size_t closeBytePos = char_to_byte_index(buffer[cursor.Y], cursor.X);
+                            buffer[cursor.Y].insert(closeBytePos, 1, closingChar);
                             // Cursor stays between opening and closing char
                         }
                     }
@@ -1224,7 +1229,7 @@ int main(int argc, char* argv[]) {
         }
 
         // Store action in cache if buffer changed or position changed
-        if (buffer != bufferBeforeAction || cursorX != oldXPos || cursorY != oldYPos || inplacementHappened) {
+        if (buffer != bufferBeforeAction || cursor.X != oldXPos || cursor.Y != oldYPos || inplacementHappened) {
             
             // Only cache certain actions that change buffer state
             if (ch >= 32 || ch == 10 || ch == KEY_BACKSPACE || ch == 127 || 
@@ -1236,14 +1241,14 @@ int main(int argc, char* argv[]) {
                     pasteSize = clipboard.size();
                 }
                 debugWrite("Appending CacheActionBuffer");
-                appendCacheActionBuffer(bufferBeforeAction, buffer, ch, cursorX, cursorY, cacheActionBuffer, maxCacheNum, cacheIndex, pasteSize);
+                appendCacheActionBuffer(bufferBeforeAction, buffer, ch, cursor.X, cursor.Y, cacheActionBuffer, maxCacheNum, cacheIndex, pasteSize);
             }
         }
 
         // Update selection end
         if (search.active) {
-            selection.endY = cursorY;
-            selection.endX = cursorX;
+            selection.endY = cursor.Y;
+            selection.endX = cursor.X;
         }
     }
 

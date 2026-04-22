@@ -27,6 +27,14 @@ struct closeXPos{
     bool hasSecondPos;
     int secondXPos;
 };
+class cursorElement {
+    public:
+        int X;
+        int Y;
+        cursorElement()
+            : X(0),
+              Y(0) {}
+};
 
 class SelectionElements {
     public:
@@ -124,6 +132,10 @@ struct FileProperties{
 struct fileElements {
     int lastModified;
     bool isChanged;
+    cursorElement cursor;
+
+    SelectionElements selection;
+    // legacy
     int selStartX;
     int selStartY;
     int selEndX;
@@ -145,18 +157,20 @@ struct cacheAction {
 
 struct tabOverlayParams {
     bool exists;
-    int cursorX;
-    int cursorY;
+
     int startOfWordX;
     int startOfWordY;
     std::vector<std::string> buffer;
-    
-    
+    cursorElement cursor;
+
     std::string cachedWord;
     std::string cachedCompareString;
     int cachedCursorX = -1;
     int cachedCursorY = -1;
     bool needsUpdate = true;
+    // legacy
+    int cursorX;
+    int cursorY;
 };
 
 std::string expandPath(const std::string& path) {
@@ -1008,33 +1022,21 @@ bool isDirectory(std::string filename) {
     return S_ISDIR(buffer.st_mode); 
 }
 
-void changeFileElements(std::vector<fileElements>& fileElementsBuffer,int activeBufferIndex, int changingToIndex, int& lastModifiedTime, bool& unsavedChanges , int& cursorX , int& cursorY , SelectionElements& selection){
+void changeFileElements(std::vector<fileElements>& fileElementsBuffer,int activeBufferIndex, int changingToIndex, int& lastModifiedTime, bool& unsavedChanges , cursorElement& cursor , SelectionElements& selection){
     fileElementsBuffer[activeBufferIndex].lastModified = lastModifiedTime;
     fileElementsBuffer[activeBufferIndex].isChanged = unsavedChanges;
-    fileElementsBuffer[activeBufferIndex].selStartX = selection.startX;
-    fileElementsBuffer[activeBufferIndex].selStartY = selection.startY;
-    fileElementsBuffer[activeBufferIndex].selEndX = selection.endX;
-    fileElementsBuffer[activeBufferIndex].selEndY = selection.endY;
-    fileElementsBuffer[activeBufferIndex].cursorX = cursorX;
-    fileElementsBuffer[activeBufferIndex].cursorY = cursorY;
+    fileElementsBuffer[activeBufferIndex].selection = selection;
+    fileElementsBuffer[activeBufferIndex].cursor = cursor;
     lastModifiedTime = fileElementsBuffer[changingToIndex].lastModified;
     unsavedChanges = fileElementsBuffer[changingToIndex].isChanged;
-    selection.startX = fileElementsBuffer[changingToIndex].selStartX;
-    selection.startY = fileElementsBuffer[changingToIndex].selStartY;
-    selection.endX = fileElementsBuffer[changingToIndex].selEndX;
-    selection.endY = fileElementsBuffer[changingToIndex].selEndY;
-    cursorX = fileElementsBuffer[changingToIndex].cursorX;
-    cursorY = fileElementsBuffer[changingToIndex].cursorY;
+    selection = fileElementsBuffer[changingToIndex].selection;
+    cursor = fileElementsBuffer[changingToIndex].cursor;
 }
-void SetInfileElements(std::vector<fileElements>& fileElementsBuffer, int Index , int& lastModifiedTime, bool& unsavedChanges, SelectionElements& selection, int& cursorX, int& cursorY) {
+void SetInfileElements(std::vector<fileElements>& fileElementsBuffer, int Index , int& lastModifiedTime, bool& unsavedChanges, SelectionElements& selection, cursorElement cursor) {
     lastModifiedTime = fileElementsBuffer[Index].lastModified;
     unsavedChanges = fileElementsBuffer[Index].isChanged;
-    selection.startX = fileElementsBuffer[Index].selStartX;
-    selection.startY = fileElementsBuffer[Index].selStartY;
-    selection.endX = fileElementsBuffer[Index].selEndX;
-    selection.endY = fileElementsBuffer[Index].selEndY;
-    cursorX = fileElementsBuffer[Index].cursorX;
-    cursorY = fileElementsBuffer[Index].cursorY;
+    selection = fileElementsBuffer[Index].selection;
+    cursor = fileElementsBuffer[Index].cursor;
 }
 
 void detectLanguage(std::vector<std::string>& buffer, std::string& detectedLang, std::string filename){
@@ -1106,17 +1108,17 @@ bool isOpeningChar(char c) {
     return c == '(' || c == '{' || c == '[' || c == '"' || c == '\'';;
 }
 
-void updateOpenCharList(std::vector<std::string> buffer, std::vector<char>& openCharList, int cursorX, int cursorY){
+void updateOpenCharList(std::vector<std::string> buffer, std::vector<char>& openCharList, const cursorElement& cursor){
     std::vector<char> correspondingCharStart = {'(','{','[', '"', '\''};
     std::vector<char> correspondingCharEnd = {')','}',']', '"', '\''};
     for (int i = 0; i < correspondingCharStart.size(); i++){
         char activeCharStart = correspondingCharStart[i];
         char activeCharEnd = correspondingCharEnd[i];
-        if (buffer[cursorY][cursorX] == activeCharStart){
+        if (buffer[cursor.Y][cursor.X] == activeCharStart){
             openCharList.push_back(activeCharStart);
             break;
         }
-        else if (buffer[cursorY][cursorX] == activeCharEnd){
+        else if (buffer[cursor.Y][cursor.X] == activeCharEnd){
             for (int j = 0; j < openCharList.size(); j++){
                 if (openCharList[j] == activeCharEnd){
                     openCharList.erase(openCharList.begin() + j);
@@ -1342,7 +1344,7 @@ void showHelp(std::string version, int lineNumberScheme) {
 
 void tabOverlay(tabOverlayParams& tabOverlayParamsIn);
 
-void draw(int cursorY, int cursorX, int& rowOffset, 
+void draw(const cursorElement& cursor, int& rowOffset, 
     const std::string& filename,int lineNumberScheme, 
     int contentScheme, bool unsavedChanges, 
     int& colOffset, int inlineSuggestionNPredict , bool multiFileMode,
@@ -1361,6 +1363,8 @@ int maxRows = LINES - 2; // leave last line for status bar
 int visibleWidth = COLS - lineNumberWidth;
 if (visibleWidth < 1) visibleWidth = 1;
 
+int cursorY = cursor.Y;
+int cursorX = cursor.X;
 if (cursorY < 0) cursorY = 0;
 if (cursorY >= (int)buffer.size()) cursorY = (int)buffer.size() - 1;
 if (cursorY < rowOffset) {
@@ -1597,7 +1601,7 @@ void generateEmptyCacheAction(std::vector<cacheAction>& cacheActionBuffer, int& 
     cacheActionBuffer.push_back(emptyAction);
     cacheIndex = cacheActionBuffer.size() - 1;
 }
-void displayAISettings(int cursorY, int cursorX, int& rowOffset,
+void displayAISettings(const cursorElement& cursor, int& rowOffset,
      const std::string& filename, int lineNumberScheme, int contentScheme,
       bool selectionActive, bool unsavedChanges, int& colOffset, AiProps& AiSettings){
     int selectedSetting = 0;
@@ -1756,7 +1760,7 @@ std::vector<std::string> generateInlineBuffer(const std::string& inputBufferStri
     return outVector;
 }
 
-void undo(int& cursorX, int& cursorY, std::vector<std::string>& buffer, std::vector<cacheAction>& cacheActionBuffer, int& cacheIndex, int savedCacheIndex,
+void undo(cursorElement& cursor, std::vector<std::string>& buffer, std::vector<cacheAction>& cacheActionBuffer, int& cacheIndex, int savedCacheIndex,
             std::vector<std::string>& initialFileBuffer, bool& unsavedChanges ) {
     debugWrite("UNDO: cacheActionBuffer.size()=" + std::to_string(cacheActionBuffer.size()) + ", cacheIndex=" + std::to_string(cacheIndex));
     
@@ -1783,21 +1787,21 @@ void undo(int& cursorX, int& cursorY, std::vector<std::string>& buffer, std::vec
             debugWrite("UNDO: line 0 = '" + buffer[0] + "'");
         }
         
-        cursorX = action.cursorX;
-        cursorY = action.cursorY;
+        cursor.X = action.cursorX;
+        cursor.Y = action.cursorY;
         unsavedChanges = (cacheIndex != savedCacheIndex);
         debugWrite("Undo: restored to cache index " + std::to_string(cacheIndex));
     } else {
         debugWrite("UNDO: restoring to initial file state");
         buffer = initialFileBuffer;
-        cursorX = 0;
-        cursorY = 0;
+        cursor.X = 0;
+        cursor.Y = 0;
         unsavedChanges = (savedCacheIndex != -1);
         debugWrite("Undo: restored to initial state, buf size=" + std::to_string(buffer.size()));
     }
 }
 
-void redo(int& cursorX, int& cursorY, std::vector<std::string>& buffer, std::vector<cacheAction>& cacheActionBuffer, int& cacheIndex, int savedCacheIndex,
+void redo(cursorElement& cursor, std::vector<std::string>& buffer, std::vector<cacheAction>& cacheActionBuffer, int& cacheIndex, int savedCacheIndex,
         std::vector<std::string>& initialFileBuffer, bool& unsavedChanges) {
     if (cacheIndex >= (int)cacheActionBuffer.size() - 1) {
         debugWrite("Nothing to redo");
@@ -1814,17 +1818,19 @@ void redo(int& cursorX, int& cursorY, std::vector<std::string>& buffer, std::vec
             applyDiff(buffer, cacheActionBuffer[i]);
         }
         
-        cursorX = action.cursorX;
-        cursorY = action.cursorY;
+        cursor.X = action.cursorX;
+        cursor.Y = action.cursorY;
         // Only mark as unsaved if we're not at the saved state
         unsavedChanges = (cacheIndex != savedCacheIndex);
         debugWrite("Redo: restored to cache index " + std::to_string(cacheIndex));
     }
 }
 
-void getInlineSuggestion(int cursorX, int cursorY, std::vector<std::string>& buffer, int maxInlineSuggestionPromptLength, AiProps AiSettings,
+void getInlineSuggestion(const cursorElement& cursor, std::vector<std::string>& buffer, int maxInlineSuggestionPromptLength, AiProps AiSettings,
         std::vector<std::string>& inlineBuffer, int& inlineBufferPosX, int& inlineBufferPosY, bool& showInlineSuggestion,  bool otherConstruct = false){
         debugWrite("Tab pressed - Triggering AI Completion");
+        int cursorX = cursor.X;
+        int cursorY = cursor.Y;
         std::vector<std::string> vectorBeforetxt;
         
         vectorBeforetxt.reserve(static_cast<size_t>(cursorY) + 1); // avoid reallocs
