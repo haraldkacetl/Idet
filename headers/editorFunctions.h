@@ -13,6 +13,16 @@
 #include <cstdlib>
 
 //#include "light/bash.hpp"
+class SelectionElements {
+    public:
+        int selStartX;
+        int selStartY;
+        int selEndX;
+        int selEndY;
+        bool selectionActive;
+        
+};
+
 class AiProps{
     public:
         std::string AiProvider;
