@@ -13,6 +13,82 @@
 #include <cstdlib>
 
 //#include "light/bash.hpp"
+
+bool checkFileExistance(const std::string& filePath) {
+    std::ifstream file(filePath);
+    return file.good();
+}
+
+class File{
+    bool fileExists;
+    public:
+        std::string filename;
+        int lastModifiedTime = 0;
+        bool unsavedChanges = false;
+        bool createNewFile = true;
+
+        std::vector<std::string> buffer;
+        int inlineBufferPosX = 0;
+        int inlineBufferPosY = 0;
+        std::vector<std::string> initialFileBuffer;
+        std::vector<std::string> inlineBuffer;
+    public:
+        File(){
+
+        }
+        File(std::string filename){
+            this->filename = filename;
+        }
+
+    void load(){
+        if (!checkFileExistance(filename)) {
+            debugWrite("file does not exist");
+            fileExists = false;
+            buffer.clear();
+            buffer.emplace_back();
+            initialFileBuffer = buffer; // Track initial state
+            lastModifiedTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+            return;
+        }
+
+
+        std::ifstream file(filename);
+        if (!file) {
+            fileExists = false;
+            buffer.clear();
+            initialFileBuffer = buffer; // Track initial state
+            lastModifiedTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+            return;
+        }
+
+        fileExists = true;
+        std::string line;
+        while (std::getline(file, line)) {
+            buffer.push_back(line);
+        }
+        if (buffer.empty()) buffer.push_back("");
+        lastModifiedTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    }
+
+    void save(){
+        debugWrite("Saving file: " + filename);
+        if(!fileExists){
+            //createNewFile(filename);
+            std::ofstream out(filename, std::ios::out | std::ios::trunc);
+            if (!out) {
+                throw std::system_error(errno, std::generic_category(), "Failed to create file: " + filename);
+            }
+        }
+        std::ofstream file(filename);
+        lastModifiedTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+
+        for (auto& line : buffer) file << line << "\n";
+        unsavedChanges = false;
+        //nsavedChanges = false;
+        //savedCacheIndex = cacheIndex;
+    }
+};
+
 class SelectionElements {
     public:
         int selStartX;
@@ -1139,19 +1215,6 @@ static std::wstring utf8_to_wstring(const std::string &s) {
 }
 
 
-
-bool checkFileExistance(const std::string& filePath) {
-    std::ifstream file(filePath);
-    return file.good();
-}
-
-void createNewFileFunc(const std::string &filename) {
-    std::ofstream out(filename, std::ios::out | std::ios::trunc);
-    if (!out) {
-        throw std::system_error(errno, std::generic_category(), "Failed to create file: " + filename);
-    }
-}
-
 void loadFile(const std::string& filename, std::vector<std::string>& targetBuffer, std::vector<std::string>& initialFileBuffer, int& lastModifiedTime) {
     if (!checkFileExistance(filename)) {
         debugWrite("file does not exist");
@@ -1192,7 +1255,7 @@ void saveFile(const std::string& filename , int& lastModifiedTime, bool& unsaved
     //createNewFileFunc(filename);
     debugWrite("Saving file: " + filename);
     if (checkFileExistance(filename) == false){
-        createNewFileFunc(filename);
+        //createNewFileFunc(filename);
     }
     std::ofstream file(filename);
     for (auto& line : buffer) file << line << "\n";
