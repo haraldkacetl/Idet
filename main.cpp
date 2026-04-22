@@ -47,11 +47,20 @@ int inlineBufferPosX = 0;
 int inlineBufferPosY = 0;
 
 SelectionElements selection;
-//bool selectionActive = false;
-//int selStartY = 0, selStartX = 0;
-//int selEndY = 0, selEndX = 0;
 
 std::string clipboard;
+
+
+SearchElement search;
+
+
+std::string detectedLang = "";
+std::vector<fileElements> fileElementsBuffer;
+bool tabOverlayActive = false;
+tabOverlayParams tabParams;
+bool inplacementHappened = false;
+
+
 bool unsavedChanges = false;
 bool createNewFile = true;
 std::string configPath = expandPath("~/.config/idet/config");
@@ -64,17 +73,7 @@ std::vector<std::vector<std::string>> inactiveBuffer;
 std::vector<std::string> fileList;
 int activeBufferIndex = 0;
 std::vector<char> openCharList;
-bool activeSearch = false;
-std::string searchTerm = "";
-int SearchLastFoundX = -1;
-int SearchLastFoundY = -1;
-std::vector<posCords> searchResults;
-int searchcount = 0;
-std::string detectedLang = "";
-std::vector<fileElements> fileElementsBuffer;
-bool tabOverlayActive = false;
-tabOverlayParams tabParams;
-bool inplacementHappened = false;
+
 
 // Configurable
 int lineNumberScheme = 1; // 1 or 2
@@ -334,34 +333,34 @@ int main(int argc, char* argv[]) {
             showInlineSuggestion, lastModifiedTime,
             tabOverlayActive, tabParams, inlineBuffer,
             inlineBufferPosX, inlineBufferPosY, selection);
-        if (activeSearch) {
+        if (search.activeSearch) {
             debugWrite("Searching through results...");
-            emptySearchOverlay(searchTerm);
+            emptySearchOverlay(search.searchTerm);
             int ch = waitOnKeyPress();
             debugWrite("Key pressed during search: " + std::to_string(ch));
             if (ch == 10) {
                 debugWrite("Enter pressed, moving through results");
-                if (!searchResults.empty()) {
-                    if (searchcount >= searchResults.size()) {
-                        searchcount = 0; 
+                if (!search.searchResults.empty()) {
+                    if (search.searchcount >= search.searchResults.size()) {
+                        search.searchcount = 0; 
                     }
 
-                    cursorX = searchResults[searchcount].x;
-                    cursorY = searchResults[searchcount].y;
-                    searchcount++;
+                    cursorX = search.searchResults[search.searchcount].x;
+                    cursorY = search.searchResults[search.searchcount].y;
+                    search.searchcount++;
                 }
                 continue;
             }
             else if (ch == 27) { // ESC
-                activeSearch = false;
-                searchResults.clear();
-                searchcount = 0;
+                search.activeSearch = false;
+                search.searchResults.clear();
+                search.searchcount = 0;
                 continue;
             }
             else{
-                activeSearch = false;
-                searchResults.clear();
-                searchcount = 0;
+                search.activeSearch = false;
+                search.searchResults.clear();
+                search.searchcount = 0;
                 continue;
             }
         }
@@ -1136,8 +1135,8 @@ int main(int argc, char* argv[]) {
                 break;
             }
             case 6:
-                searchOverlay(buffer, cursorX, cursorY, activeSearch, searchTerm, SearchLastFoundX, SearchLastFoundY, searchResults);
-                debugWrite("got results in Vec: " + posCordsVecToString(searchResults));
+                searchOverlay(buffer, cursorX, cursorY, search);
+                debugWrite("got results in Vec: " + posCordsVecToString(search.searchResults));
                 break;
             default: {
                 // Handle selection deletion first if selection is active

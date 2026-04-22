@@ -13,6 +13,21 @@
 #include <cstdlib>
 
 //#include "light/bash.hpp"
+
+struct posCords {
+    bool exists;
+    int x;
+    int y;
+    bool afterAlso;
+};
+
+struct closeXPos{
+    bool hasPos;
+    int xPos;
+    bool hasSecondPos;
+    int secondXPos;
+};
+
 class SelectionElements {
     public:
         int selStartX;
@@ -26,6 +41,22 @@ class SelectionElements {
           selEndX(0),
           selEndY(0),
           selectionActive(false) {}
+};
+
+class SearchElement {
+    public:
+        bool activeSearch;
+        std::string searchTerm;
+        int SearchLastFoundX;
+        int SearchLastFoundY;
+        int searchcount;
+        std::vector<posCords> searchResults;
+    SearchElement()
+        : activeSearch(false),
+          searchTerm(""),
+          SearchLastFoundX(-1),
+          SearchLastFoundY(-1),
+          searchcount(0) {}
 };
 
 class AiProps{
@@ -178,19 +209,6 @@ inline void applyDiff(std::vector<std::string>& buffer, const cacheAction& diff)
     }
 }
 
-struct posCords {
-    bool exists;
-    int x;
-    int y;
-    bool afterAlso;
-};
-
-struct closeXPos{
-    bool hasPos;
-    int xPos;
-    bool hasSecondPos;
-    int secondXPos;
-};
 
 std::string beforeCursor(std::string lineContent, int cursorX) {
     if (cursorX <= 0) {
@@ -355,9 +373,8 @@ void fillInVecPosCords(std::vector<posCords> &vec, std::vector<std::string> &buf
     }
 }
 
-void searchOverlay(std::vector<std::string>& buffer, int& cursorX, int& cursorY, bool& searchActive , std::string& searchTerm,
-int& lastFoundX, int& lastFoundY, std::vector<posCords>& searchResults) {
-    searchActive = true;
+void searchOverlay(std::vector<std::string>& buffer, int& cursorX, int& cursorY, SearchElement& search) {
+    search.activeSearch = true;
     int searchRow = LINES - 2;
     bool firstAction = true;
     std::string searchSuggestion = "";
@@ -369,97 +386,97 @@ int& lastFoundX, int& lastFoundY, std::vector<posCords>& searchResults) {
         clrtoeol();
         // make suggestion gray
         attron(COLOR_PAIR(100));
-        mvprintw(searchRow, 0, "Search: %s", searchTerm.c_str());
+        mvprintw(searchRow, 0, "Search: %s", search.searchTerm.c_str());
         attroff(COLOR_PAIR(100));
         attron(COLOR_PAIR(110));
-        mvprintw(searchRow, 8 + searchTerm.size(), "%s", searchSuggestion.c_str());
+        mvprintw(searchRow, 8 + search.searchTerm.size(), "%s", searchSuggestion.c_str());
         attroff(COLOR_PAIR(110));
         refresh();
         int ch = getch();
         
         if (ch == 27) {
-            searchActive = false;
+            search.activeSearch = false;
             break; // ESC key 
         } 
         //also handle backspace
         else if (ch == KEY_BACKSPACE || ch == 263 ) {
             if (!firstAction){
-                if (!searchTerm.empty()) {
-                    searchTerm.pop_back();
+                if (!search.searchTerm.empty()) {
+                    search.searchTerm.pop_back();
                     searchSuggestion = "";
-                    lastFoundY = -1;
-                    lastFoundX = -1;
+                    search.SearchLastFoundX = -1;
+                    search.SearchLastFoundY = -1;
                 }
             }else{
-                searchTerm = "";
+                search.searchTerm = "";
                 continue;
             }
 
         } else if (ch == '\n' || ch == '\r' || ch == 10 || ch == 13 || ch == KEY_ENTER) {
             
-            if (!searchTerm.empty()) {
+            if (!search.searchTerm.empty()) {
                 posCords cords;
-                if (lastFoundY >= 0 && lastFoundX >= 0) {
+                if (search.SearchLastFoundY >= 0 && search.SearchLastFoundX >= 0) {
                     
-                    cords = findNextInBuffer(buffer, searchTerm, lastFoundY, lastFoundX + (int)searchTerm.length());
+                    cords = findNextInBuffer(buffer, search.searchTerm, search.SearchLastFoundY, search.SearchLastFoundX + (int)search.searchTerm.length());
                 } else {
                     
-                    cords = findInBuffer(buffer, searchTerm);
+                    cords = findInBuffer(buffer, search.searchTerm);
                 }
                 
                 if (cords.exists) {
                     cursorX = cords.x;
                     cursorY = cords.y;
-                    lastFoundY = cords.y;
-                    lastFoundX = cords.x;
+                    search.SearchLastFoundY = cords.y;
+                    search.SearchLastFoundX = cords.x;
                 }
-                fillInVecPosCords(searchResults, buffer, searchTerm);
+                fillInVecPosCords(search.searchResults, buffer, search.searchTerm);
                 break;
             }
             break;
         } else if (ch == KEY_END) {
             
-            if (!searchTerm.empty()) {
-                posCords cords = findLastInBuffer(buffer, searchTerm);
+            if (!search.searchTerm.empty()) {
+                posCords cords = findLastInBuffer(buffer, search.searchTerm);
                 if (cords.exists) {
                     cursorX = cords.x;
                     cursorY = cords.y;
-                    lastFoundY = cords.y;
-                    lastFoundX = cords.x;
+                    search.SearchLastFoundY = cords.y;
+                    search.SearchLastFoundX = cords.x;
                 }
             }
         } else if (ch == KEY_HOME) {
             
-            if (!searchTerm.empty()) {
-                posCords cords = findInBuffer(buffer, searchTerm);
+            if (!search.searchTerm.empty()) {
+                posCords cords = findInBuffer(buffer, search.searchTerm);
                 if (cords.exists) {
                     cursorX = cords.x;
                     cursorY = cords.y;
-                    lastFoundY = cords.y;
-                    lastFoundX = cords.x;
+                    search.SearchLastFoundY = cords.y;
+                    search.SearchLastFoundX = cords.x;
                 }
             }
         } else if (ch == KEY_NPAGE) {
             
-            if (!searchTerm.empty() && lastFoundY >= 0) {
-                int nextSearchY = lastFoundY + (LINES / 2);
-                posCords cords = findNextInBuffer(buffer, searchTerm, nextSearchY, 0);
+            if (!search.searchTerm.empty() && search.SearchLastFoundY >= 0) {
+                int nextSearchY = search.SearchLastFoundY + (LINES / 2);
+                posCords cords = findNextInBuffer(buffer, search.searchTerm, nextSearchY, 0);
                 if (cords.exists) {
                     cursorX = cords.x;
                     cursorY = cords.y;
-                    lastFoundY = cords.y;
-                    lastFoundX = cords.x;
+                    search.SearchLastFoundY = cords.y;
+                    search.SearchLastFoundX = cords.x;
                 }
             }
         } else if (isprint(ch)) {
-            searchTerm += static_cast<char>(ch);
-            lastFoundY = -1;
-            lastFoundX = -1;
+            search.searchTerm += static_cast<char>(ch);
+            search.SearchLastFoundY = -1;
+            search.SearchLastFoundX = -1;
         }
         //also utf-8 characters
         else if (ch >= 128 && ch <= 255) {
-            lastFoundY = -1;
-            lastFoundX = -1;
+            search.SearchLastFoundY = -1;
+            search.SearchLastFoundX = -1;
             std::string utf8_char;
             utf8_char += static_cast<char>(ch);
             int remaining_bytes = 0;
@@ -473,22 +490,22 @@ int& lastFoundX, int& lastFoundY, std::vector<posCords>& searchResults) {
                     utf8_char += static_cast<char>(next_byte);
                 }
             }
-            searchTerm += utf8_char;
+            search.searchTerm += utf8_char;
         }
         // TAB - accept suggestion
         else if (ch == '\t') {
             if (!searchSuggestion.empty()) {
-                searchTerm += searchSuggestion;
+                search.searchTerm += searchSuggestion;
                 searchSuggestion = "";
-                lastFoundY = -1;
-                lastFoundX = -1;
+                search.SearchLastFoundY = -1;
+                search.SearchLastFoundX = -1;
             }
         }
         // get suggestion
-        if (!searchTerm.empty()) {
-            posCords cords = findInBuffer(buffer, searchTerm);
+        if (!search.searchTerm.empty()) {
+            posCords cords = findInBuffer(buffer, search.searchTerm);
             if (cords.exists) {
-                searchSuggestion = buffer[cords.y].substr(cords.x + searchTerm.size());
+                searchSuggestion = buffer[cords.y].substr(cords.x + search.searchTerm.size());
             } else {
                 searchSuggestion = "";
             }
