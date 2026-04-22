@@ -1351,7 +1351,7 @@ if (multiFileMode) {
 mvprintw(0, 0, "Idet-Editor - File: %s%s | Selection: %s | Suggestion Length: %d | File: %d/%ld",
          filename.c_str(),
          unsavedChanges ? "*" : "",
-         selectionActive ? "ON" : "OFF", 
+         selection.selectionActive ? "ON" : "OFF", 
         inlineSuggestionNPredict,
         activeBufferIndex + 1,
         fileList.size()
@@ -1360,13 +1360,13 @@ mvprintw(0, 0, "Idet-Editor - File: %s%s | Selection: %s | Suggestion Length: %d
 mvprintw(0, 0, "Idet-Editor - File: %s%s | Selection: %s | Suggestion Length: %d",
          filename.c_str(),
          unsavedChanges ? "*" : "",
-         selectionActive ? "ON" : "OFF", 
+         selection.selectionActive ? "ON" : "OFF", 
         inlineSuggestionNPredict
         );
     }
 attroff(A_BOLD);
-int selTop = std::min(selStartY, selEndY);
-int selBottom = std::max(selStartY, selEndY);
+int selTop = std::min(selection.selStartY, selection.selEndY);
+int selBottom = std::max(selection.selStartY, selection.selEndY);
 for (int i = 0; i < maxRows && (rowOffset + i) < (int)buffer.size(); ++i) {
     int fileLine = rowOffset + i;
 
@@ -1400,14 +1400,14 @@ for (int i = 0; i < maxRows && (rowOffset + i) < (int)buffer.size(); ++i) {
         int screenX = lineNumberWidth + (x - colOffset);
         bool inSelection = false;
 
-        if (selectionActive) {
+        if (selection.selectionActive) {
             if (fileLine > selTop && fileLine < selBottom) inSelection = true;
             else if (fileLine == selTop && fileLine == selBottom)
-                inSelection = (x >= std::min(selStartX, selEndX) && x < std::max(selStartX, selEndX));
+                inSelection = (x >= std::min(selection.selStartX, selection.selEndX) && x < std::max(selection.selStartX, selection.selEndX));
             else if (fileLine == selTop)
-                inSelection = (x >= selStartX);
+                inSelection = (x >= selection.selStartX);
             else if (fileLine == selBottom)
-                inSelection = (x < selEndX);
+                inSelection = (x < selection.selEndX);
         }
 
         // Determine color based on syntax highlighting
