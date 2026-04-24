@@ -617,7 +617,7 @@ void clearLine(int lineNum){
     clrtoeol();
 }
 
-void emptySearchOverlay(std::string searchTerm){
+void emptySearchOverlay(std::string& searchTerm){
     // get current cursor position
     int funccursorX, funccursorY;
     getyx(stdscr, funccursorY, funccursorX);
